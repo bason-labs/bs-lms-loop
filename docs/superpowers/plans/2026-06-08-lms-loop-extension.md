@@ -1037,10 +1037,19 @@ test('buildRequest unknown provider throws', () => {
   assert.throws(() => buildRequest('nope', {}, []));
 });
 
-test('parseResponse extracts text per provider', () => {
+test('buildRequest custom uses baseUrl; throws when baseUrl missing', () => {
+  const r = buildRequest('custom', { apiKey: 'k', model: 'm', baseUrl: 'https://my.host' }, buildSolvePrompt({ question: 'q', options: ['a'] }));
+  assert.equal(r.url, 'https://my.host/v1/chat/completions');
+  assert.equal(r.headers.authorization, 'Bearer k');
+  assert.throws(() => buildRequest('custom', { apiKey: 'k', model: 'm', baseUrl: '' }, []));
+});
+
+test('parseResponse extracts text per provider (incl. custom + default)', () => {
   assert.equal(parseResponse('openai', { choices: [{ message: { content: 'x' } }] }), 'x');
+  assert.equal(parseResponse('custom', { choices: [{ message: { content: 'c' } }] }), 'c');
   assert.equal(parseResponse('anthropic', { content: [{ text: 'a' }, { text: 'b' }] }), 'ab');
   assert.equal(parseResponse('gemini', { candidates: [{ content: { parts: [{ text: 'g' }] } }] }), 'g');
+  assert.equal(parseResponse('unknown', {}), '');
 });
 
 test('parseAnswerJson tolerates surrounding prose', () => {
@@ -1052,6 +1061,11 @@ test('parseAnswerJson tolerates surrounding prose', () => {
 
 test('parseAnswerJson returns null on garbage', () => {
   assert.equal(parseAnswerJson('no json here'), null);
+});
+
+test('parseAnswerJson drops null/empty indices (no spurious index 0)', () => {
+  const a = parseAnswerJson('{"answerIndices":[null,"",2],"answerText":[],"reason":""}');
+  assert.deepEqual(a.answerIndices, [2]);
 });
 ```
 
@@ -1109,6 +1123,7 @@ export function buildRequest(provider, cfg, messages) {
         }
       };
     case 'custom':
+      if (!baseUrl) throw new Error('Custom provider requires a baseUrl');
       return {
         url: `${baseUrl}/v1/chat/completions`,
         headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
@@ -1138,7 +1153,7 @@ export function parseAnswerJson(text) {
   try {
     const obj = JSON.parse(match[0]);
     const answerIndices = Array.isArray(obj.answerIndices)
-      ? obj.answerIndices.map(Number).filter(Number.isInteger) : [];
+      ? obj.answerIndices.filter((v) => v !== null && v !== '').map(Number).filter(Number.isInteger) : [];
     const answerText = Array.isArray(obj.answerText)
       ? obj.answerText.map(String) : (obj.answerText != null ? [String(obj.answerText)] : []);
     return { answerIndices, answerText, reason: obj.reason ? String(obj.reason) : '' };
@@ -1160,7 +1175,7 @@ export async function callLlm(cfg, { question, options, context }) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `node --test test/llm_adapter.test.mjs`
-Expected: PASS — 8 tests.
+Expected: PASS — 10 tests.
 
 - [ ] **Step 5: Run the full suite**
 
