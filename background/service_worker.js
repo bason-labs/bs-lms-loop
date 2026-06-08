@@ -7,24 +7,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true; // keep channel open for async response
 });
 
-async function handle(msg) {
+async function handle(msg, sender) {
   switch (msg?.type) {
     case 'GET_CONFIG': return await getConfig();
-    case 'GET_RUNSTATE': return await getRunState();
+    case 'GET_RUNSTATE': {
+      const rs = await getRunState();
+      // Tell a content script whether it lives in the tab the loop is bound to.
+      return { ...rs, isTargetTab: sender?.tab ? sender.tab.id === rs.tabId : undefined };
+    }
     case 'UPDATE_RUNSTATE': return { ok: true, runState: await setRunState(msg.patch || {}) };
     case 'SAVE_LESSON_TEXT': await saveLessonText(msg.lesson); return { ok: true };
-    case 'CONTROL': return await control(msg.action);
+    case 'CONTROL': return await control(msg.action, msg.tabId);
     case 'SOLVE_QUIZ': return await solveQuiz(msg.payload);
     case 'TEST_KEY': return await testKey(msg.llm);
     default: throw new Error(`Unknown message: ${msg?.type}`);
   }
 }
 
-async function control(action) {
-  const map = { START: 'running', STOP: 'idle', STEP: 'running' };
-  const status = map[action];
-  if (!status) throw new Error(`Bad control action: ${action}`);
-  return { ok: true, runState: await setRunState({ status, error: null }) };
+async function control(action, tabId) {
+  if (action === 'STOP') return { ok: true, runState: await setRunState({ status: 'idle', tabId: null }) };
+  if (action === 'START' || action === 'STEP') {
+    const runState = await setRunState({ status: 'running', error: null, tabId: tabId ?? null });
+    if (tabId != null) chrome.tabs.sendMessage(tabId, { type: 'RESUME' }).catch(() => {}); // kick off promptly
+    return { ok: true, runState };
+  }
+  throw new Error(`Bad control action: ${action}`);
 }
 
 // Phase 4: live solver — assemble RAG context from captured doc text, call the LLM, fall back on error.
@@ -54,9 +61,9 @@ async function testKey(llm) {
   }
 }
 
-// Resume the loop after navigation: nudge the content script when a running tab finishes loading.
+// Resume the loop after navigation — only for the tab the loop is bound to.
 chrome.tabs.onUpdated.addListener(async (tabId, info) => {
   if (info.status !== 'complete') return;
   const rs = await getRunState();
-  if (rs.status === 'running') chrome.tabs.sendMessage(tabId, { type: 'RESUME' }).catch(() => {});
+  if (rs.status === 'running' && rs.tabId === tabId) chrome.tabs.sendMessage(tabId, { type: 'RESUME' }).catch(() => {});
 });
