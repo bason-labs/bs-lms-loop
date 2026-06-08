@@ -500,3 +500,18 @@ body {
   letter-spacing: .01em;
   padding-top: 2px;
 }
+
+/* gate — sign-in / no-access overlay */
+.gate {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 28px 18px 22px;
+}
+.gate .mark { width: 40px; height: 40px; font-size: 18px; border-radius: 11px; margin-bottom: 4px; }
+.gate-title { font-family: var(--display); font-weight: 600; font-size: 22px; margin: 4px 0 0; color: var(--fg); }
+.gate-sub { margin: 0 0 14px; font-size: 12px; color: var(--muted); max-width: 240px; }
+.gate .power { width: auto; padding: 11px 18px; }
+.gate .ghost { margin-top: 6px; }
+.gate[data-state="denied"] .gate-title { color: var(--danger); }
