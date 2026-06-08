@@ -78,10 +78,10 @@ bs-lms-loop/
 │   ├── content_quiz.js     # scrape Q+options, request answer, fill inputs, submit
 │   └── content.css         # floating status badge overlay
 │
-├── lib/                    # ES modules — imported by service_worker.js (+ popup)
-│   ├── llm_adapter.js      # provider-agnostic request build + response parse
-│   ├── storage.js          # typed chrome.storage.local wrappers + deriveLessonId
-│   └── dom_utils.js        # robust selectors, waitFor, clickByText, simulateClick
+├── lib/                    # shared helpers (see per-file loading notes below)
+│   ├── llm_adapter.js      # ES module — imported by service_worker.js
+│   ├── storage.js          # ES module — imported by service_worker.js AND popup.js
+│   └── dom_utils.js        # classic script — loaded in the content bundle (window.__LMS)
 │
 └── config/
     └── selectors.js        # tunable heuristic profiles (classic script in content bundle)
