@@ -14,8 +14,10 @@ test('emailHash is SHA-256 of the normalized email', async () => {
   assert.equal(await emailHash('  A@B.com '), expected);
 });
 
-test('parseUserinfo extracts a normalized email or null', () => {
+test('parseUserinfo extracts a normalized, verified email or null', () => {
   assert.equal(parseUserinfo({ email: 'X@Y.com', email_verified: true }), 'x@y.com');
+  assert.equal(parseUserinfo({ email: 'x@y.com' }), 'x@y.com');           // verified flag absent → accept
+  assert.equal(parseUserinfo({ email: 'x@y.com', email_verified: false }), null); // unverified → reject
   assert.equal(parseUserinfo({}), null);
 });
 
