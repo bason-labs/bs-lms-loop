@@ -1,0 +1,17 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; color: #0f172a; background: #f7f8fa; }
+.bar { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: #06100f; color: #e0ffff; }
+.brand { font-weight: 700; letter-spacing: .02em; }
+.spacer { flex: 1; }
+.who { font-size: 13px; color: #7aa8a8; }
+.wrap { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+.card { background: #fff; border: 1px solid #e3e7ec; border-radius: 12px; padding: 18px; box-shadow: 0 8px 24px -16px rgba(0,0,0,.3); }
+h2 { margin: 0 0 12px; font-size: 16px; }
+.add-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.input { flex: 1; padding: 9px 11px; border: 1px solid #c4d7d1; border-radius: 8px; font-size: 14px; }
+.btn { padding: 8px 14px; border: 1px solid #c4d7d1; background: #fff; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn.primary { background: #15a3c7; border-color: #15a3c7; color: #fff; }
+.msg { min-height: 18px; font-size: 13px; color: #c92d3a; }
+.list { width: 100%; border-collapse: collapse; font-size: 14px; }
+.list th, .list td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eef1f4; }
+.list .rm { color: #c92d3a; cursor: pointer; border: 0; background: none; font-weight: 600; }
