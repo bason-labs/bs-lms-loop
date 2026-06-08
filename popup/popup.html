@@ -9,6 +9,14 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+  <div id="gate" class="gate" hidden>
+    <span class="mark" aria-hidden="true">BS</span>
+    <h1 class="gate-title" id="gate-title">Sign in</h1>
+    <p class="gate-sub" id="gate-sub">Use your authorized Google account to continue.</p>
+    <button id="signin" class="power" type="button"><span class="power-label">Sign in with Google</span></button>
+    <button id="signout" class="ghost" type="button" hidden>Sign out</button>
+  </div>
+  <div id="app" hidden>
   <div class="grain" aria-hidden="true"></div>
 
   <header class="topbar reveal" style="--d:0">
@@ -121,6 +129,7 @@
     <span id="foot-msg" data-i18n="foot">Runs on the active tab · state survives reloads</span>
   </footer>
 
+  </div><!-- #app -->
   <script type="module" src="popup.js"></script>
 </body>
 </html>
