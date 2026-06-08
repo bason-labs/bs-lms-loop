@@ -168,7 +168,13 @@ async function refresh() {
 
 async function control(action) {
   await persist();
-  const res = await chrome.runtime.sendMessage({ type: 'CONTROL', action }).catch((e) => ({ error: String(e) }));
+  // Bind the loop to the tab the user is looking at when they press Start.
+  let tabId;
+  if (action === 'START') {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    tabId = tab?.id;
+  }
+  const res = await chrome.runtime.sendMessage({ type: 'CONTROL', action, tabId }).catch((e) => ({ error: String(e) }));
   if (res?.runState) applyStatus(res.runState);
   else applyStatus({ status: 'error', error: res?.error || 'no response' });
 }
