@@ -17,6 +17,7 @@
       "js": [
         "config/selectors.js",
         "lib/dom_utils.js",
+        "content/cursor.js",
         "content/detector.js",
         "content/content_video.js",
         "content/content_doc.js",
