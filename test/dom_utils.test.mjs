@@ -1,0 +1,31 @@
+// test/dom_utils.test.mjs
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+(0, eval)(readFileSync(new URL('../lib/dom_utils.js', import.meta.url), 'utf8'));
+const dom = globalThis.__LMS.dom;
+
+test('norm collapses whitespace and lowercases', () => {
+  assert.equal(dom.norm('  Next   Lesson \n'), 'next lesson');
+});
+
+test('deriveLessonId is stable for same url+title', () => {
+  const a = dom.deriveLessonId('https://lms/x/1#m', 'Intro');
+  const b = dom.deriveLessonId('https://lms/x/1#m', 'Intro');
+  assert.equal(a, b);
+  assert.match(a, /^L[0-9a-z]+$/);
+});
+
+test('deriveLessonId differs across lessons', () => {
+  assert.notEqual(dom.deriveLessonId('https://lms/x/1', 'A'), dom.deriveLessonId('https://lms/x/2', 'A'));
+});
+
+test('deriveLessonId normalizes title whitespace (no duplicate ids from scraping)', () => {
+  assert.equal(dom.deriveLessonId('https://lms/x/1', 'Intro'), dom.deriveLessonId('https://lms/x/1', '  Intro \n'));
+});
+
+test('deriveLessonId tolerates a non-URL string without throwing', () => {
+  const id = dom.deriveLessonId('not-a-url', 'X');
+  assert.match(id, /^L[0-9a-z]+$/);
+});

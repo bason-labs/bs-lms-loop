@@ -133,7 +133,15 @@ Expected: FAIL — cannot find module `../lib/storage.js`.
 ```js
 // lib/storage.js — defaults, pure helpers, and chrome.storage.local I/O (ES module)
 
-export const DEFAULT_CONFIG = Object.freeze({
+// Recursively freeze so nested config objects can't be mutated (DEFAULT_CONFIG is a
+// fallback source for getConfig via structuredClone; an accidental nested mutation
+// would otherwise leak into future fresh-install reads).
+function deepFreeze(o) {
+  Object.values(o).forEach((v) => v && typeof v === 'object' && deepFreeze(v));
+  return Object.freeze(o);
+}
+
+export const DEFAULT_CONFIG = deepFreeze({
   enabled: false,
   mode: 'auto',                                   // 'auto' | 'step'
   llm: { provider: 'openai', apiKey: '', model: 'gpt-4o-mini', baseUrl: '', temperature: 0 },
@@ -223,6 +231,15 @@ test('deriveLessonId is stable for same url+title', () => {
 test('deriveLessonId differs across lessons', () => {
   assert.notEqual(dom.deriveLessonId('https://lms/x/1', 'A'), dom.deriveLessonId('https://lms/x/2', 'A'));
 });
+
+test('deriveLessonId normalizes title whitespace (no duplicate ids from scraping)', () => {
+  assert.equal(dom.deriveLessonId('https://lms/x/1', 'Intro'), dom.deriveLessonId('https://lms/x/1', '  Intro \n'));
+});
+
+test('deriveLessonId tolerates a non-URL string without throwing', () => {
+  const id = dom.deriveLessonId('not-a-url', 'X');
+  assert.match(id, /^L[0-9a-z]+$/);
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -238,11 +255,12 @@ Expected: FAIL — `ENOENT` reading `lib/dom_utils.js`.
 (function () {
   const NS = (globalThis.__LMS = globalThis.__LMS || {});
   const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   function deriveLessonId(url, title = '') {
     let path = url;
     try { const u = new URL(url); path = u.pathname + u.hash; } catch { /* keep raw */ }
-    const basis = `${path}::${title}`.trim();
+    const basis = `${path}::${norm(title)}`.trim();
     let h = 5381;
     for (let i = 0; i < basis.length; i++) h = ((h << 5) + h + basis.charCodeAt(i)) >>> 0;
     return 'L' + h.toString(36);
@@ -292,7 +310,7 @@ Expected: FAIL — `ENOENT` reading `lib/dom_utils.js`.
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  NS.dom = { norm, deriveLessonId, waitFor, findClickableByText, findFirst, simulateClick, setNativeValue };
+  NS.dom = { norm, sleep, deriveLessonId, waitFor, findClickableByText, findFirst, simulateClick, setNativeValue };
 })();
 ```
 
@@ -743,7 +761,7 @@ git commit -m "feat: document text extraction -> SAVE_LESSON_TEXT"
   }
 
   async function clickNext(config) {
-    await NS.dom.waitFor(() => true, { timeout: config.delays.betweenLessonsMs });
+    await NS.dom.sleep(config.delays.betweenLessonsMs);
     const next = NS.dom.findClickableByText(NS.selectors.nextButtonText) || NS.dom.findFirst(NS.selectors.nextSelectors);
     return next ? NS.dom.simulateClick(next) : false;
   }
@@ -770,13 +788,14 @@ git commit -m "feat: document text extraction -> SAVE_LESSON_TEXT"
       if (config.mode === 'step') await chrome.runtime.sendMessage({ type: 'CONTROL', action: 'STOP' });
     } catch (e) {
       badge(`error: ${e?.message || e}`);
-      await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { error: String(e?.message || e) } });
+      await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { error: String(e?.message || e) } }).catch(() => {});
     } finally {
       running = false;
     }
   }
 
   async function maybeRun() {
+    if (running) return; // a handler is active; skip the GET_RUNSTATE poll until it finishes
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
     badge(rs?.status || 'idle');
     if (rs?.status === 'running') runOnce();
@@ -866,7 +885,7 @@ git commit -m "feat: detector classifies quiz lessons"
     const choiceInputs = [...document.querySelectorAll('input[type="radio"],input[type="checkbox"]')];
     const options = choiceInputs.map((input, i) => {
       const label = input.closest('label')
-        || (input.id && document.querySelector(`label[for="${input.id}"]`))
+        || (input.id && document.querySelector(`label[for="${CSS.escape(input.id)}"]`))
         || input.parentElement;
       return { index: i, text: NS.dom.norm(label?.innerText) || `option ${i}`, input };
     });
@@ -887,7 +906,7 @@ git commit -m "feat: detector classifies quiz lessons"
     }
     if (config.quiz.forceSubmit) {
       const submit = NS.dom.findClickableByText(NS.selectors.submitButtonText) || NS.dom.findFirst(NS.selectors.submitSelectors);
-      if (submit) { NS.dom.simulateClick(submit); await NS.dom.waitFor(() => true, { timeout: config.delays.actionMs }); }
+      if (submit) { NS.dom.simulateClick(submit); await NS.dom.sleep(config.delays.actionMs); }
     }
     return { ok: true };
   }
@@ -1018,10 +1037,19 @@ test('buildRequest unknown provider throws', () => {
   assert.throws(() => buildRequest('nope', {}, []));
 });
 
-test('parseResponse extracts text per provider', () => {
+test('buildRequest custom uses baseUrl; throws when baseUrl missing', () => {
+  const r = buildRequest('custom', { apiKey: 'k', model: 'm', baseUrl: 'https://my.host' }, buildSolvePrompt({ question: 'q', options: ['a'] }));
+  assert.equal(r.url, 'https://my.host/v1/chat/completions');
+  assert.equal(r.headers.authorization, 'Bearer k');
+  assert.throws(() => buildRequest('custom', { apiKey: 'k', model: 'm', baseUrl: '' }, []));
+});
+
+test('parseResponse extracts text per provider (incl. custom + default)', () => {
   assert.equal(parseResponse('openai', { choices: [{ message: { content: 'x' } }] }), 'x');
+  assert.equal(parseResponse('custom', { choices: [{ message: { content: 'c' } }] }), 'c');
   assert.equal(parseResponse('anthropic', { content: [{ text: 'a' }, { text: 'b' }] }), 'ab');
   assert.equal(parseResponse('gemini', { candidates: [{ content: { parts: [{ text: 'g' }] } }] }), 'g');
+  assert.equal(parseResponse('unknown', {}), '');
 });
 
 test('parseAnswerJson tolerates surrounding prose', () => {
@@ -1033,6 +1061,11 @@ test('parseAnswerJson tolerates surrounding prose', () => {
 
 test('parseAnswerJson returns null on garbage', () => {
   assert.equal(parseAnswerJson('no json here'), null);
+});
+
+test('parseAnswerJson drops null/empty indices (no spurious index 0)', () => {
+  const a = parseAnswerJson('{"answerIndices":[null,"",2],"answerText":[],"reason":""}');
+  assert.deepEqual(a.answerIndices, [2]);
 });
 ```
 
@@ -1090,6 +1123,7 @@ export function buildRequest(provider, cfg, messages) {
         }
       };
     case 'custom':
+      if (!baseUrl) throw new Error('Custom provider requires a baseUrl');
       return {
         url: `${baseUrl}/v1/chat/completions`,
         headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
@@ -1119,7 +1153,7 @@ export function parseAnswerJson(text) {
   try {
     const obj = JSON.parse(match[0]);
     const answerIndices = Array.isArray(obj.answerIndices)
-      ? obj.answerIndices.map(Number).filter(Number.isInteger) : [];
+      ? obj.answerIndices.filter((v) => v !== null && v !== '').map(Number).filter(Number.isInteger) : [];
     const answerText = Array.isArray(obj.answerText)
       ? obj.answerText.map(String) : (obj.answerText != null ? [String(obj.answerText)] : []);
     return { answerIndices, answerText, reason: obj.reason ? String(obj.reason) : '' };
@@ -1141,7 +1175,7 @@ export async function callLlm(cfg, { question, options, context }) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `node --test test/llm_adapter.test.mjs`
-Expected: PASS — 8 tests.
+Expected: PASS — 10 tests.
 
 - [ ] **Step 5: Run the full suite**
 
@@ -1239,3 +1273,4 @@ git commit -m "feat: live LLM solver with RAG context + Test key + error fallbac
 - **API key at rest:** stored unencrypted in `chrome.storage.local` — fine for personal use, not for shared profiles.
 - **`<all_urls>`:** broad by design; narrow `matches`/`host_permissions` to the real LMS origin to tighten the footprint once known.
 - **Cross-origin video/quiz iframes:** handlers operate on same-origin DOM; players/quizzes inside cross-origin iframes are out of reach for v0.1 (would need `all_frames` + per-frame injection — deferred).
+- **Multi-tab `RESUME` (known limitation, v0.1):** `chrome.tabs.onUpdated` sends `RESUME` to *any* tab that finishes loading while `runState.status === 'running'`, not only the course tab. The content script self-gates on lesson detection, so harm is limited, but a future hardening should record `currentTabId` in `runState` (captured on START) and filter the listener by it. Deferred to avoid expanding the approved schema mid-build.

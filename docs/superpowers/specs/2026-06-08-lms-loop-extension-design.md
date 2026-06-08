@@ -222,10 +222,15 @@ later. No `web_accessible_resources` needed (no page-world injection).
 | Message          | Direction          | Payload                                  | Response                          |
 |------------------|--------------------|------------------------------------------|-----------------------------------|
 | `GET_CONFIG`     | content → bg       | —                                        | `config`                          |
-| `SAVE_LESSON_TEXT`| content → bg      | `{lessonId, title, type, url, text}`     | `{ok}`                            |
-| `SOLVE_QUIZ`     | content → bg       | `{question, options[], lessonContext}`   | `{answerIndices, answerText, reason}` or `{error}` |
-| `UPDATE_RUNSTATE`| content → bg       | partial `runState`                       | `{ok}`                            |
-| `CONTROL`        | popup → bg         | `{action: "START"|"STOP"|"STEP"}`        | `{ok, runState}`                  |
+| `GET_RUNSTATE`   | content/popup → bg | —                                        | `runState`                        |
+| `SAVE_LESSON_TEXT`| content → bg      | `{lesson: {id, title, type, url, text, capturedAt}}` | `{ok}`                |
+| `SOLVE_QUIZ`     | content → bg       | `{payload: {question, options[]}}`       | `{answer: {answerIndices, answerText, reason}}` or `{error}` |
+| `UPDATE_RUNSTATE`| content → bg       | `{patch}` (partial `runState`)           | `{ok, runState}`                  |
+| `CONTROL`        | popup/content → bg | `{action: "START"|"STOP"|"STEP"}`        | `{ok, runState}`                  |
+| `TEST_KEY`       | popup → bg         | `{llm}` (llm config)                     | `{ok}` or `{ok:false, error}`     |
+| `RESUME`         | bg → content       | —                                        | (fire-and-forget)                 |
+
+> Note: `SAVE_LESSON_TEXT` keys lessons by `id` (not `lessonId`); the `SOLVE_QUIZ` answer is nested under `answer`. These reflect the as-built implementation.
 
 ## 9. Implementation Roadmap
 
