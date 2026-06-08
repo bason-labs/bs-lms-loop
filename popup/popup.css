@@ -72,15 +72,24 @@ body {
   justify-content: space-between;
   margin-bottom: 14px;
 }
-.brand { display: flex; align-items: center; gap: 8px; }
-.spark {
-  color: var(--clay);
+.brand { display: flex; align-items: center; gap: 9px; }
+.mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   display: grid;
   place-items: center;
-  animation: spin-in 1.1s cubic-bezier(.2, .8, .2, 1) both;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -.02em;
+  color: var(--clay-tint);
+  background: linear-gradient(180deg, #ca6642, #a0482c);
+  box-shadow: 0 1px 0 rgba(255,240,230,.35) inset, 0 4px 10px -4px rgba(160,72,44,.6);
+  animation: mark-in .7s cubic-bezier(.2, .8, .2, 1) both;
 }
-@keyframes spin-in {
-  from { transform: rotate(-120deg) scale(.5); opacity: 0; }
+@keyframes mark-in {
+  from { transform: scale(.55) rotate(-8deg); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
 .wordmark {
