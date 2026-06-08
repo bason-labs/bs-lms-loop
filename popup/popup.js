@@ -3,6 +3,28 @@ import { getConfig, setConfig } from '../lib/storage.js';
 const $ = (id) => document.getElementById(id);
 const groupEl = (name) => document.querySelector(`[data-group="${name}"]`);
 
+function showGate(auth) {
+  const allowed = !!auth?.allowed;
+  $('gate').hidden = allowed;
+  $('app').hidden = !allowed;
+  if (allowed) return;
+  const denied = auth && auth.email && !auth.allowed;
+  $('gate').dataset.state = denied ? 'denied' : 'signedout';
+  $('gate-title').textContent = denied ? 'No access' : 'Sign in';
+  $('gate-sub').textContent = denied
+    ? `${auth.email} isn't on the allowed list. Ask an admin to add it.`
+    : 'Use your authorized Google account to continue.';
+  $('signin').querySelector('.power-label').textContent = denied ? 'Try another account' : 'Sign in with Google';
+  $('signout').hidden = !denied;
+}
+
+async function refreshAuth(interactive) {
+  const type = interactive ? 'CHECK_ACCESS' : 'GET_AUTH';
+  const auth = await chrome.runtime.sendMessage({ type, interactive }).catch(() => null);
+  showGate(auth);
+  return auth;
+}
+
 const MODEL_HINT = {
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-haiku-latest',
@@ -178,6 +200,7 @@ async function control(action) {
     tabId = tab?.id;
   }
   const res = await chrome.runtime.sendMessage({ type: 'CONTROL', action, tabId }).catch((e) => ({ error: String(e) }));
+  if (res?.error === 'NOT_AUTHORIZED') { await refreshAuth(false); return; }
   if (res?.runState) applyStatus(res.runState);
   else applyStatus({ status: 'error', error: res?.error || 'no response' });
 }
@@ -249,6 +272,15 @@ $('adv-toggle').addEventListener('click', () => {
   $('adv-toggle').setAttribute('aria-expanded', String(open));
 });
 
+$('signin').addEventListener('click', async () => {
+  $('gate-sub').textContent = 'Checking…';
+  await refreshAuth(true);
+});
+$('signout').addEventListener('click', async () => {
+  await chrome.runtime.sendMessage({ type: 'SIGN_OUT' }).catch(() => {});
+  await refreshAuth(false);
+});
+
 /* ---------- boot ---------- */
 (async () => {
   const prefs = await getPrefs();
@@ -258,6 +290,8 @@ $('adv-toggle').addEventListener('click', () => {
   // Lock the "coming soon" section: non-focusable, non-interactive.
   const soon = document.querySelector('.card--soon');
   if (soon) soon.inert = true;
+  const auth = await refreshAuth(false);   // cached; no Google prompt on open
+  if (!auth?.allowed) return;               // stay on the gate until signed in
   await refresh();
   setInterval(refresh, 1500); // live status while the popup is open
 })();
