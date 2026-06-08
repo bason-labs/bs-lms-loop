@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,14 +16,26 @@
       <span class="mark" aria-hidden="true">BS</span>
       <span class="wordmark">LMS&nbsp;Loop</span>
     </div>
-    <div id="chip" class="chip" data-status="idle">
-      <span class="chip-dot"></span>
-      <span id="chip-label">idle</span>
+    <div class="head-tools">
+      <div class="seg-mini" data-group="lang" role="group" aria-label="Language">
+        <button type="button" class="mini-btn" data-value="en">EN</button>
+        <button type="button" class="mini-btn" data-value="vi">VI</button>
+      </div>
+      <button id="theme-toggle" class="icon-btn sm" type="button" aria-label="Toggle theme" data-i18n-title="ttl_theme" title="Toggle theme">
+        <svg class="i-sun" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-13a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1Zm0 14a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1ZM4 12a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1Zm14 0a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2h-1a1 1 0 0 1-1-1ZM6.3 6.3a1 1 0 0 1 1.4 0l.7.7A1 1 0 1 1 7 8.4l-.7-.7a1 1 0 0 1 0-1.4Zm9.6 9.6a1 1 0 0 1 1.4 0l.7.7a1 1 0 0 1-1.4 1.4l-.7-.7a1 1 0 0 1 0-1.4Zm1.4-9.6a1 1 0 0 1 0 1.4l-.7.7A1 1 0 0 1 15.6 7l.7-.7a1 1 0 0 1 1.4 0ZM7 15.9a1 1 0 0 1 0 1.4l-.7.7a1 1 0 0 1-1.4-1.4l.7-.7a1 1 0 0 1 1.4 0Z"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M21 13.2A8.5 8.5 0 1 1 10.8 3a6.7 6.7 0 0 0 10.2 10.2Z"/></svg>
+      </button>
     </div>
   </header>
 
   <section class="hero reveal" style="--d:1">
-    <p class="hero-eyebrow">Autopilot</p>
+    <div class="hero-top">
+      <p class="hero-eyebrow" data-i18n="eyebrow">Autopilot</p>
+      <div id="chip" class="chip" data-status="idle">
+        <span class="chip-dot"></span>
+        <span id="chip-label">idle</span>
+      </div>
+    </div>
     <h1 id="hero-status" class="hero-status">Standing by</h1>
     <p id="hero-sub" class="hero-sub">Open a lesson and start the loop.</p>
 
@@ -33,53 +45,53 @@
     </button>
 
     <div class="seg" data-group="mode" role="group" aria-label="Run mode">
-      <button type="button" class="seg-btn" data-value="auto">Auto&nbsp;loop</button>
-      <button type="button" class="seg-btn" data-value="step">Step</button>
+      <button type="button" class="seg-btn" data-value="auto" data-i18n="mode_auto">Auto&nbsp;loop</button>
+      <button type="button" class="seg-btn" data-value="step" data-i18n="mode_step">Step</button>
     </div>
   </section>
 
   <section class="card reveal" style="--d:2">
     <div class="card-head">
-      <h2 class="label">Intelligence</h2>
-      <span class="label-note">used for quizzes</span>
+      <h2 class="label" data-i18n="sec_intel">Intelligence</h2>
+      <span class="label-note" data-i18n="note_quiz">used for quizzes</span>
     </div>
 
     <div class="pills" data-group="provider" role="group" aria-label="LLM provider">
       <button type="button" class="pill" data-value="openai">OpenAI</button>
       <button type="button" class="pill" data-value="anthropic">Anthropic</button>
       <button type="button" class="pill" data-value="gemini">Gemini</button>
-      <button type="button" class="pill" data-value="custom">Custom</button>
+      <button type="button" class="pill" data-value="custom" data-i18n="prov_custom">Custom</button>
     </div>
 
     <div class="field">
-      <label class="field-label" for="apiKey">API key</label>
+      <label class="field-label" for="apiKey" data-i18n="lbl_apikey">API key</label>
       <div class="key-row">
         <input id="apiKey" class="input mono" type="password" autocomplete="off"
-               spellcheck="false" placeholder="blank → skip / guess quizzes">
-        <button id="reveal" class="icon-btn" type="button" title="Show / hide" aria-label="Show or hide key">
+               spellcheck="false" data-i18n-ph="ph_apikey" placeholder="blank → skip / guess quizzes">
+        <button id="reveal" class="icon-btn" type="button" data-i18n-title="ttl_reveal" title="Show / hide" aria-label="Show or hide key">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 5c5 0 8.5 4.2 9.5 6.6.2.5.2 1 0 1.5C20.5 15.8 17 20 12 20s-8.5-4.2-9.5-6.9a1.8 1.8 0 0 1 0-1.5C3.5 9.2 7 5 12 5Zm0 2.2c-3.6 0-6.5 3-7.4 4.9.9 1.9 3.8 4.9 7.4 4.9s6.5-3 7.4-4.9C18.5 10.2 15.6 7.2 12 7.2Zm0 1.9a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z"/></svg>
         </button>
       </div>
       <div class="key-actions">
-        <button id="test" class="ghost" type="button">Test key</button>
+        <button id="test" class="ghost" type="button" data-i18n="btn_test">Test key</button>
         <span id="test-result" class="test-result"></span>
       </div>
     </div>
 
     <div class="field">
-      <label class="field-label" for="model">Model</label>
+      <label class="field-label" for="model" data-i18n="lbl_model">Model</label>
       <input id="model" class="input" type="text" spellcheck="false" placeholder="gpt-4o-mini">
     </div>
 
     <div class="field" id="baseUrl-field" hidden>
-      <label class="field-label" for="baseUrl">Base URL</label>
+      <label class="field-label" for="baseUrl" data-i18n="lbl_baseurl">Base URL</label>
       <input id="baseUrl" class="input mono" type="text" spellcheck="false" placeholder="https://your-endpoint">
     </div>
   </section>
 
   <section class="card reveal" style="--d:3">
     <button id="adv-toggle" class="card-head as-button" type="button" aria-expanded="false" aria-controls="adv-body">
-      <h2 class="label">Behavior</h2>
+      <h2 class="label" data-i18n="sec_behavior">Behavior</h2>
       <span class="chev" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
       </span>
@@ -88,24 +100,24 @@
     <div id="adv-body" class="adv-body" hidden>
       <div class="field">
         <div class="field-label-row">
-          <label class="field-label" for="playbackRate">Video speed</label>
+          <label class="field-label" for="playbackRate" data-i18n="lbl_video">Video speed</label>
           <span id="rate-value" class="rate-value">×8</span>
         </div>
         <input id="playbackRate" class="range" type="range" min="1" max="16" step="1" value="8">
       </div>
 
       <div class="field">
-        <label class="field-label">No-key quiz fallback</label>
+        <label class="field-label" data-i18n="lbl_fallback">No-key quiz fallback</label>
         <div class="seg" data-group="fallback" role="group" aria-label="Fallback when no key">
-          <button type="button" class="seg-btn" data-value="random">Random&nbsp;fill</button>
-          <button type="button" class="seg-btn" data-value="skip">Skip</button>
+          <button type="button" class="seg-btn" data-value="random" data-i18n="fb_random">Random&nbsp;fill</button>
+          <button type="button" class="seg-btn" data-value="skip" data-i18n="fb_skip">Skip</button>
         </div>
       </div>
     </div>
   </section>
 
   <footer class="foot reveal" style="--d:4">
-    <span id="foot-msg">Runs on the active tab · state survives reloads</span>
+    <span id="foot-msg" data-i18n="foot">Runs on the active tab · state survives reloads</span>
   </footer>
 
   <script type="module" src="popup.js"></script>

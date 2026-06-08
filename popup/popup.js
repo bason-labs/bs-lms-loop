@@ -10,7 +10,68 @@ const MODEL_HINT = {
   custom: 'your-model'
 };
 
+/* ---------- i18n ---------- */
+const I18N = {
+  en: {
+    eyebrow: 'Autopilot',
+    mode_auto: 'Auto loop', mode_step: 'Step',
+    sec_intel: 'Intelligence', note_quiz: 'used for quizzes', prov_custom: 'Custom',
+    lbl_apikey: 'API key', ph_apikey: 'blank → skip / guess quizzes', ttl_reveal: 'Show / hide',
+    btn_test: 'Test key', lbl_model: 'Model', lbl_baseurl: 'Base URL',
+    sec_behavior: 'Behavior', lbl_video: 'Video speed', lbl_fallback: 'No-key quiz fallback',
+    fb_random: 'Random fill', fb_skip: 'Skip',
+    foot: 'Runs on the active tab · state survives reloads', ttl_theme: 'Toggle theme',
+    test_checking: 'checking…', test_ok: 'key works ✓',
+    status: { idle: 'idle', running: 'running', paused: 'paused', done: 'done', error: 'error' },
+    type: { video: 'video', doc: 'document', quiz: 'quiz' },
+    hero: {
+      idle: ['Standing by', 'Open a lesson and start the loop.', 'Start automating'],
+      running: ['Running', null, 'Stop'],
+      paused: ['Paused', 'The loop is holding here.', 'Resume'],
+      done: ['Course complete', 'Nothing left to advance.', 'Run again'],
+      error: ['Hit a snag', null, 'Try again']
+    },
+    runningSub: (t) => (t ? `Handling the ${t} lesson · clicking through.` : 'Working through the course…')
+  },
+  vi: {
+    eyebrow: 'Tự động',
+    mode_auto: 'Tự động', mode_step: 'Từng bước',
+    sec_intel: 'Trí tuệ AI', note_quiz: 'dùng cho trắc nghiệm', prov_custom: 'Tùy chỉnh',
+    lbl_apikey: 'Khóa API', ph_apikey: 'trống → bỏ qua / đoán', ttl_reveal: 'Hiện / ẩn',
+    btn_test: 'Kiểm tra khóa', lbl_model: 'Mô hình', lbl_baseurl: 'Base URL',
+    sec_behavior: 'Hành vi', lbl_video: 'Tốc độ video', lbl_fallback: 'Khi không có khóa',
+    fb_random: 'Điền ngẫu nhiên', fb_skip: 'Bỏ qua',
+    foot: 'Chạy trên tab hiện tại · giữ trạng thái khi tải lại', ttl_theme: 'Đổi giao diện',
+    test_checking: 'đang kiểm tra…', test_ok: 'khóa hợp lệ ✓',
+    status: { idle: 'chờ', running: 'đang chạy', paused: 'tạm dừng', done: 'xong', error: 'lỗi' },
+    type: { video: 'video', doc: 'tài liệu', quiz: 'trắc nghiệm' },
+    hero: {
+      idle: ['Sẵn sàng', 'Mở một bài học và bấm bắt đầu.', 'Bắt đầu tự động'],
+      running: ['Đang chạy', null, 'Dừng'],
+      paused: ['Tạm dừng', 'Vòng lặp đang tạm dừng.', 'Tiếp tục'],
+      done: ['Hoàn thành', 'Không còn gì để tiếp.', 'Chạy lại'],
+      error: ['Gặp sự cố', null, 'Thử lại']
+    },
+    runningSub: (t) => (t ? `Đang xử lý bài ${t} · tự động chuyển.` : 'Đang chạy qua khóa học…')
+  }
+};
+
+let lang = 'en';
+let theme = 'dark';
 let status = 'idle';
+let lastRs = null;
+
+const dict = () => I18N[lang] || I18N.en;
+const t = (key) => dict()[key] ?? key;
+
+/* ---------- prefs (popup-only, separate from config) ---------- */
+async function getPrefs() {
+  const o = await chrome.storage.local.get('prefs');
+  return { theme: 'dark', lang: 'en', ...(o.prefs || {}) };
+}
+async function savePrefs() {
+  await chrome.storage.local.set({ prefs: { theme, lang } });
+}
 
 /* ---------- segmented / pill groups ---------- */
 function getGroup(name) {
@@ -28,6 +89,22 @@ function paintRate() {
   const pct = ((r.value - r.min) / (r.max - r.min)) * 100;
   r.style.setProperty('--fill', pct + '%');
   $('rate-value').textContent = '×' + r.value;
+}
+
+/* ---------- theme + language ---------- */
+function applyTheme(th) {
+  theme = th === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+function applyI18n(lg) {
+  lang = I18N[lg] ? lg : 'en';
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  setGroup('lang', lang);
+  applyStatus(lastRs); // re-render dynamic strings in the new language
 }
 
 /* ---------- config <-> UI ---------- */
@@ -62,30 +139,26 @@ function syncProvider() {
 }
 
 /* ---------- status presentation ---------- */
-const SUB_RUNNING = (t) => (t ? `Handling the ${t} lesson · clicking through.` : 'Working through the course…');
-
 function applyStatus(rs) {
+  lastRs = rs;
   status = rs?.status || 'idle';
+  const d = dict();
   const type = rs?.currentType;
-  const chip = $('chip');
-  chip.dataset.status = status;
-  $('chip-label').textContent = status;
 
-  const power = $('power');
+  $('chip').dataset.status = status;
+  $('chip-label').textContent = d.status[status] || status;
+
   const running = status === 'running' || status === 'paused';
-  power.classList.toggle('is-running', running);
+  $('power').classList.toggle('is-running', running);
 
-  const view = {
-    idle: ['Standing by', 'Open a lesson and start the loop.', 'Start automating'],
-    running: ['Running', SUB_RUNNING(type), 'Stop'],
-    paused: ['Paused', 'The loop is holding here.', 'Resume'],
-    done: ['Course complete', 'Nothing left to advance.', 'Run again'],
-    error: ['Hit a snag', rs?.error || 'Something went wrong — check the page.', 'Try again']
-  }[status] || ['Standing by', 'Open a lesson and start the loop.', 'Start automating'];
+  const view = d.hero[status] || d.hero.idle;
+  let [title, sub, plabel] = view;
+  if (status === 'running') sub = d.runningSub(type ? (d.type[type] || type) : '');
+  if (status === 'error') sub = rs?.error || sub || '';
 
-  $('hero-status').textContent = view[0];
-  $('hero-sub').textContent = view[1];
-  $('power-label').textContent = view[2];
+  $('hero-status').textContent = title;
+  $('hero-sub').textContent = sub;
+  $('power-label').textContent = plabel;
 }
 
 async function refresh() {
@@ -101,7 +174,6 @@ async function control(action) {
 }
 
 /* ---------- wiring ---------- */
-// provider pills
 groupEl('provider').addEventListener('click', (e) => {
   const b = e.target.closest('[data-value]');
   if (!b) return;
@@ -110,7 +182,6 @@ groupEl('provider').addEventListener('click', (e) => {
   persist();
 });
 
-// segmented controls (mode + fallback)
 ['mode', 'fallback'].forEach((name) => {
   groupEl(name).addEventListener('click', (e) => {
     const b = e.target.closest('[data-value]');
@@ -120,17 +191,27 @@ groupEl('provider').addEventListener('click', (e) => {
   });
 });
 
-// power button morphs by status
+// language switch
+groupEl('lang').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-value]');
+  if (!b) return;
+  applyI18n(b.dataset.value);
+  savePrefs();
+});
+
+// theme toggle
+$('theme-toggle').addEventListener('click', () => {
+  applyTheme(theme === 'dark' ? 'light' : 'dark');
+  savePrefs();
+});
+
 $('power').addEventListener('click', () => control(status === 'running' || status === 'paused' ? 'STOP' : 'START'));
 
-// text inputs
 ['apiKey', 'model', 'baseUrl'].forEach((id) => $(id).addEventListener('change', persist));
 
-// range
 $('playbackRate').addEventListener('input', paintRate);
 $('playbackRate').addEventListener('change', persist);
 
-// key reveal
 $('reveal').addEventListener('click', () => {
   const k = $('apiKey');
   const show = k.type === 'password';
@@ -138,7 +219,6 @@ $('reveal').addEventListener('click', () => {
   $('reveal').classList.toggle('is-on', show);
 });
 
-// test key
 $('test').addEventListener('click', async () => {
   await persist();
   const cfg = await getConfig();
@@ -146,14 +226,13 @@ $('test').addEventListener('click', async () => {
   const btn = $('test');
   btn.disabled = true;
   out.className = 'test-result';
-  out.textContent = 'checking…';
+  out.textContent = t('test_checking');
   const res = await chrome.runtime.sendMessage({ type: 'TEST_KEY', llm: cfg.llm }).catch((e) => ({ ok: false, error: String(e) }));
   btn.disabled = false;
-  if (res?.ok) { out.className = 'test-result ok'; out.textContent = 'key works ✓'; }
+  if (res?.ok) { out.className = 'test-result ok'; out.textContent = t('test_ok'); }
   else { out.className = 'test-result bad'; out.textContent = (res?.error || 'failed').slice(0, 40); }
 });
 
-// behavior disclosure
 $('adv-toggle').addEventListener('click', () => {
   const body = $('adv-body');
   const open = body.hidden;
@@ -163,6 +242,9 @@ $('adv-toggle').addEventListener('click', () => {
 
 /* ---------- boot ---------- */
 (async () => {
+  const prefs = await getPrefs();
+  applyTheme(prefs.theme);
+  applyI18n(prefs.lang);
   fill(await getConfig());
   await refresh();
   setInterval(refresh, 1500); // live status while the popup is open
