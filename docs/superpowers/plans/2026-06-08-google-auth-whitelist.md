@@ -647,8 +647,8 @@ async function emailHash(email) {
 }
 const mask = (email) => email.replace(/^(.).*(@.*)$/, (_, a, b) => `${a}***${b}`);
 
-$('auth-btn').addEventListener('click', () => {
-  if (auth.currentUser) signOut(auth);
+$('auth-btn').addEventListener('click', async () => {
+  if (auth.currentUser) await signOut(auth).catch((e) => { $('msg').textContent = e.message; });
   else signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => { $('msg').textContent = e.message; });
 });
 
@@ -682,11 +682,18 @@ async function render() {
     const v = d.data();
     const tr = document.createElement('tr');
     const when = v.addedAt?.toDate ? v.addedAt.toDate().toLocaleDateString() : '';
-    tr.innerHTML = `<td>${v.emailMasked || '(hidden)'}</td><td>${when}</td>`;
+    const tdEmail = document.createElement('td');
+    tdEmail.textContent = v.emailMasked || '(hidden)';   // textContent — never inject Firestore strings as HTML
+    const tdWhen = document.createElement('td');
+    tdWhen.textContent = when;
+    tr.append(tdEmail, tdWhen);
     const td = document.createElement('td');
     const btn = document.createElement('button');
     btn.className = 'rm'; btn.textContent = 'Remove';
-    btn.addEventListener('click', async () => { await deleteDoc(doc(db, 'whitelist', d.id)); await render(); });
+    btn.addEventListener('click', async () => {
+      try { await deleteDoc(doc(db, 'whitelist', d.id)); await render(); }
+      catch (e) { $('msg').textContent = e.message; }
+    });
     td.appendChild(btn); tr.appendChild(td); rows.appendChild(tr);
   });
 }
