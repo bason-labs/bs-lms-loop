@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <h1>LMS Loop</h1>
+  <label>Provider
+    <select id="provider">
+      <option value="openai">OpenAI</option>
+      <option value="anthropic">Anthropic</option>
+      <option value="gemini">Gemini</option>
+      <option value="custom">Custom</option>
+    </select>
+  </label>
+  <label>API Key <input id="apiKey" type="password" placeholder="blank = skip/guess quizzes"></label>
+  <label>Model <input id="model" type="text"></label>
+  <label>Base URL (custom) <input id="baseUrl" type="text" placeholder="https://..."></label>
+  <label>Mode
+    <select id="mode"><option value="auto">Auto loop</option><option value="step">Step</option></select>
+  </label>
+  <label>Video speed <input id="playbackRate" type="number" min="1" max="16" step="1"></label>
+  <label>No-key quiz fallback
+    <select id="fallback"><option value="random">Random fill</option><option value="skip">Skip</option></select>
+  </label>
+  <div class="row">
+    <button id="start">Start</button>
+    <button id="stop">Stop</button>
+    <button id="test">Test key</button>
+  </div>
+  <p id="status">idle</p>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
