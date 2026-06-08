@@ -13,6 +13,7 @@ async function handle(msg) {
     case 'UPDATE_RUNSTATE': return { ok: true, runState: await setRunState(msg.patch || {}) };
     case 'SAVE_LESSON_TEXT': await saveLessonText(msg.lesson); return { ok: true };
     case 'CONTROL': return await control(msg.action);
+    case 'SOLVE_QUIZ': return await solveQuiz(msg.payload);
     default: throw new Error(`Unknown message: ${msg?.type}`);
   }
 }
@@ -22,6 +23,14 @@ async function control(action) {
   const status = map[action];
   if (!status) throw new Error(`Bad control action: ${action}`);
   return { ok: true, runState: await setRunState({ status, error: null }) };
+}
+
+// Phase 3: stubbed solver — deterministic pick to exercise the content↔bg round-trip.
+async function solveQuiz(payload) {
+  const config = await getConfig();
+  if (!config.llm.apiKey) return { error: 'NO_KEY' };
+  const n = (payload?.options || []).length;
+  return { answer: { answerIndices: n ? [0] : [], answerText: [], reason: 'stub' } };
 }
 
 // Resume the loop after navigation: nudge the content script when a running tab finishes loading.
