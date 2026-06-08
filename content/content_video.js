@@ -1,4 +1,5 @@
-// content/content_video.js — speed/seek any reachable <video>, then wait for real completion.
+// content/content_video.js — drive any reachable <video> to actually watch through at speed,
+// so the LMS records progress and marks the lesson complete.
 (function () {
   const NS = (globalThis.__LMS = globalThis.__LMS || {});
 
@@ -28,25 +29,28 @@
     return n && !NS.dom.isDisabled(n) ? n : false;
   }
 
-  // Mute, speed up, and seek to just before the end so the video plays out to a real
-  // 'ended' event (which is what LMS players watch for to mark completion).
-  function primeVideo(v, config) {
-    const seekNearEnd = () => {
-      if (config.video.skipToEnd && isFinite(v.duration) && v.duration > 1) {
-        try { v.currentTime = Math.max(0, v.duration - 1); } catch { /* some players block seek */ }
-      }
-    };
-    try {
-      v.muted = true;
-      v.playbackRate = config.video.playbackRate || 8;
-      v.play?.().catch(() => {});
-      if (v.readyState >= 1 && isFinite(v.duration) && v.duration > 0) seekNearEnd();
-      else v.addEventListener('loadedmetadata', seekNearEnd, { once: true });
-    } catch (e) { NS.log?.('could not control the <video>:', e?.message || e); }
+  function clickPlayControl(v) {
+    const btn = document.querySelector(
+      '.vjs-big-play-button, .vjs-play-control, .ytp-large-play-button, .ytp-play-button, ' +
+      'button[aria-label*="play" i], button[title*="play" i], [class*="play-button"], [class*="playButton"]'
+    );
+    NS.dom.simulateClick(btn || v);
+  }
+
+  // Make sure the video is actually playing (muted autoplay, or a click if the player blocks it).
+  async function ensurePlaying(v, rate) {
+    try { v.muted = true; } catch { /* ignore */ }
+    try { v.playbackRate = rate; } catch { /* clamped by browser */ }
+    try { await (v.play?.() ?? Promise.resolve()); } catch { /* autoplay blocked */ }
+    if (v.paused) {
+      clickPlayControl(v);
+      await NS.dom.sleep(200);
+      try { await v.play?.(); } catch { /* ignore */ }
+    }
   }
 
   function ended(v) {
-    return v.ended || (isFinite(v.duration) && v.duration > 0 && v.currentTime >= v.duration - 0.4);
+    return v.ended || (isFinite(v.duration) && v.duration > 0 && v.currentTime >= v.duration - 0.5);
   }
 
   async function handleVideo(config) {
@@ -57,18 +61,35 @@
       return { ok: !!ok, controllable: false };
     }
 
-    NS.log?.('video found — speeding to the end', { count: vids.length, rate: config.video.playbackRate });
-    vids.forEach((v) => primeVideo(v, config));
+    const rate = config.video.playbackRate || 8;
+    const v = vids[0];
+    NS.log?.('video: watching through at speed', { count: vids.length, rate, duration: v.duration });
 
-    // Wait until every reachable video has actually played to its end (re-prime if a
-    // player resets currentTime on seek), with a hard cap so we never hang forever.
-    const done = await NS.dom.waitFor(() => {
-      const pending = vids.filter((v) => !ended(v));
-      pending.forEach((v) => { if (v.paused) v.play?.().catch(() => {}); if (config.video.skipToEnd) primeVideo(v, config); });
-      return pending.length === 0;
-    }, { timeout: 120000, interval: 500 });
+    await ensurePlaying(v, rate);
+    if (config.video.skipToEnd && isFinite(v.duration) && v.duration > 6) {
+      // jump most of the way, but leave a tail to play out so progress + 'ended' register
+      try { v.currentTime = Math.max(v.currentTime, v.duration - 5); } catch { /* blocked */ }
+    }
 
-    NS.log?.(done ? 'video ended' : 'video wait timed out (120s) — moving on');
+    // Keep it playing at the chosen rate — players often reset rate or pause on seek.
+    const keepAlive = setInterval(() => {
+      vids.forEach((x) => {
+        try {
+          if (!ended(x)) {
+            if (x.playbackRate !== rate) x.playbackRate = rate;
+            if (x.paused) x.play?.().catch(() => {});
+          }
+        } catch { /* ignore */ }
+      });
+    }, 1000);
+
+    const done = await NS.dom.waitFor(() => vids.every(ended), { timeout: 180000, interval: 500 });
+    clearInterval(keepAlive);
+
+    // Nudge a definite end state so the player fires its completion handler.
+    vids.forEach((x) => { try { if (!x.ended && isFinite(x.duration) && x.duration > 0) x.currentTime = x.duration; } catch { /* ignore */ } });
+
+    NS.log?.(done ? 'video watched to the end' : 'video wait timed out (180s) — moving on');
     return { ok: !!done, controllable: true };
   }
 
