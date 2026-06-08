@@ -17,9 +17,8 @@
   let fallbackTimer = 0;
   let lastLessonId = null;
   let stuckCount = 0;
-  let videoRetries = 0;
   let processingAdvance = false;
-  const MAX_VIDEO_RETRIES = 3;
+  const MAX_BACK_RETRIES = 3;
 
   function badge(text, show = true) {
     if (!isTop) return; // only the top frame shows the status pill
@@ -102,27 +101,28 @@
     }
   }
 
-  // Top frame: a child frame says it finished. If it was a video that still isn't marked
-  // complete, ask the child to re-watch (a few times) before giving up and advancing.
+  async function clickPrevious() {
+    const prev = NS.dom.findFirst(NS.selectors.primaryPrevSelectors || [])
+      || NS.dom.findClickableByText(NS.selectors.prevButtonText || []);
+    if (!prev) { NS.log?.('no Previous control — cannot go back'); return false; }
+    await NS.dom.clickVisible(prev, 'Back');
+    return true;
+  }
+
+  // Top frame: a child frame finished. The video lesson is marked done by edX only when we
+  // NAVIGATE, so we just click Next here; if it turns out it wasn't marked done, the next
+  // page's verify step (in runOnce) will go Back and redo it.
   async function onAdvanceSignal(lessonType, token) {
-    // Ignore a signal from a different (e.g. previous) lesson.
     if (token && currentToken && token !== currentToken) { NS.log?.('ignoring stale advance signal from another lesson'); return; }
     if (!waitingAdvance) { pendingAdvance = true; pendingType = lessonType; pendingToken = token; return; }
     if (processingAdvance) return;
     processingAdvance = true;
     try {
-      if (lessonType === 'video') {
-        // edX updates the outline a beat after the video ends — give it a moment.
-        const complete = await NS.dom.waitFor(() => NS.detector.lessonComplete(), { timeout: 5000, interval: 400 });
-        if (!complete && videoRetries < MAX_VIDEO_RETRIES) {
-          videoRetries += 1;
-          NS.log?.(`video not marked complete yet — re-watching (${videoRetries}/${MAX_VIDEO_RETRIES})`);
-          badge(`re-watching video (${videoRetries})`);
-          armFallback();
-          await chrome.runtime.sendMessage({ type: 'BROADCAST_RETRY' }).catch(() => {});
-          return; // stay deferred; the child will replay then signal again
-        }
-        if (!complete) NS.log?.('video still not complete after retries — advancing anyway');
+      if (lessonType === 'video' && currentToken) {
+        // Remember this video so the next page can verify it actually got marked complete.
+        const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
+        const tries = rs?.verify?.token === currentToken ? rs.verify.tries : 0;
+        await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { verify: { token: currentToken, tries } } }).catch(() => {});
       }
       await doNavigate();
     } finally {
@@ -175,6 +175,30 @@
       // New lesson on the top frame → drop any advance signal left over from the previous one.
       if (isTop) { pendingAdvance = false; pendingType = null; pendingToken = null; }
 
+      // Top frame: verify a video we just advanced past actually got marked done.
+      // If not (and we've moved on from it), go BACK to that lesson and redo it.
+      if (isTop) {
+        const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
+        const v = rs?.verify;
+        if (v?.token && lessonToken() !== v.token) {
+          await NS.dom.waitFor(() => document.querySelector('#outline-sidebar-outline, .outline-sidebar, li.bg-info-100'), { timeout: 3000, interval: 250 });
+          const done = await NS.dom.waitFor(() => NS.detector.isUnitComplete(v.token), { timeout: 3000, interval: 300 });
+          if (done) {
+            NS.log?.('verify: previous video is marked complete');
+            await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { verify: null } }).catch(() => {});
+          } else if ((v.tries || 0) < MAX_BACK_RETRIES) {
+            NS.log?.(`verify: previous video not complete — going back to redo (try ${(v.tries || 0) + 1}/${MAX_BACK_RETRIES})`);
+            badge('redo video');
+            await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { verify: { token: v.token, tries: (v.tries || 0) + 1 } } }).catch(() => {});
+            if (await clickPrevious()) return; // went back; the lesson reloads and re-runs
+            await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { verify: null } }).catch(() => {}); // no Back control
+          } else {
+            NS.log?.('verify: still not complete after retries — moving on');
+            await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { verify: null } }).catch(() => {});
+          }
+        }
+      }
+
       // Top frame: publish a completion verdict for this lesson so the content iframe
       // can read it (and skip playing an already-passed video).
       if (isTop) {
@@ -196,7 +220,6 @@
         badge('watching lesson');
         await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { lastAction: 'await-frame' } }).catch(() => {});
         waitingAdvance = true;
-        videoRetries = 0;
         currentToken = lessonToken();
         armFallback();
         if (pendingAdvance) { pendingAdvance = false; onAdvanceSignal(pendingType, pendingToken); } // child already finished
@@ -261,30 +284,9 @@
     if (rs?.status === 'running' && rs?.isTargetTab && onLessonPage()) runOnce();
   }
 
-  // Child frame: top asked us to re-watch the video (it isn't marked complete yet).
-  async function replayVideo() {
-    if (running) return;
-    running = true;
-    try {
-      const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
-      const vids = NS.video.reachableVideos();
-      if (!vids.length) { // nothing to re-watch here — just let the top advance
-        NS.log?.('[frame] retry requested but no video in this frame — advancing');
-        await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: 'doc', token: lessonToken() }).catch(() => {});
-        return;
-      }
-      vids.forEach((v) => { try { v.currentTime = 0; } catch { /* ignore */ } });
-      await NS.video.handleVideo(config);
-      if (!aborted) await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: 'video', token: lessonToken() }).catch(() => {});
-    } finally {
-      running = false;
-    }
-  }
-
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg?.type === 'RESUME') maybeRun();
     else if (msg?.type === 'ADVANCE' && isTop) onAdvanceSignal(msg.lessonType, msg.token);
-    else if (msg?.type === 'RETRY' && !isTop) replayVideo();
   });
 
   // SPA resilience: re-evaluate after DOM settles (debounced).

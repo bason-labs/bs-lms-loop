@@ -62,19 +62,20 @@
     return !!el.querySelector('[data-testid="check-circle-icon"], svg.text-success, .text-success');
   }
 
-  // Is the CURRENT lesson already completed? Read from the course outline (top frame).
-  // Match the outline link whose href holds this unit's block id — more reliable than the
-  // active-row highlight — and check that row for a completion marker.
+  // Is the unit identified by `token` (a vertical block id) marked complete in the outline?
+  function isUnitComplete(token) {
+    if (!token) return false;
+    const link = [...document.querySelectorAll('a[href]')].find((a) => (a.getAttribute('href') || '').includes(token));
+    return hasCompleteMarker(link ? (link.closest('li') || link) : null);
+  }
+
+  // Is the CURRENT lesson already completed? Match the outline link whose href holds this
+  // unit's block id — more reliable than the active-row highlight.
   function lessonComplete() {
-    const id = currentVerticalId();
-    if (id) {
-      const link = [...document.querySelectorAll('a[href]')].find((a) => (a.getAttribute('href') || '').includes(id));
-      const row = link ? (link.closest('li') || link) : null;
-      if (hasCompleteMarker(row)) return true;
-    }
+    if (isUnitComplete(currentVerticalId())) return true;
     const active = document.querySelector('li.bg-info-100') || document.querySelector('[aria-current="page"]');
     return hasCompleteMarker(active);
   }
 
-  NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo, contentIframe, lessonComplete };
+  NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo, contentIframe, lessonComplete, isUnitComplete };
 })();

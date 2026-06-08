@@ -23,11 +23,6 @@ async function handle(msg, sender) {
       if (sender?.tab) chrome.tabs.sendMessage(sender.tab.id, { type: 'ADVANCE', lessonType: msg.lessonType, token: msg.token }, { frameId: 0 }).catch(() => {});
       return { ok: true };
     }
-    case 'BROADCAST_RETRY': {
-      // Top frame asks the content frame(s) to re-watch the video (not complete yet).
-      if (sender?.tab) chrome.tabs.sendMessage(sender.tab.id, { type: 'RETRY' }).catch(() => {});
-      return { ok: true };
-    }
     case 'SOLVE_QUIZ': return await solveQuiz(msg.payload);
     case 'TEST_KEY': return await testKey(msg.llm);
     default: throw new Error(`Unknown message: ${msg?.type}`);
