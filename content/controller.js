@@ -13,7 +13,9 @@
   async function clickNext(config) {
     await NS.dom.sleep(config.delays.betweenLessonsMs);
     const next = NS.dom.findClickableByText(NS.selectors.nextButtonText) || NS.dom.findFirst(NS.selectors.nextSelectors);
-    return next ? NS.dom.clickVisible(next, 'Next') : false;
+    if (!next) { NS.log?.('no Next control found on this lesson'); return false; }
+    if (NS.dom.isDisabled(next)) { NS.log?.('Next is still disabled — lesson not complete yet'); return false; }
+    return NS.dom.clickVisible(next, 'Next');
   }
 
   async function runOnce() {
@@ -21,8 +23,12 @@
     running = true;
     try {
       const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
+      // Let the lesson settle: a player or quiz form often mounts shortly after load.
+      // Don't fall through to "doc" until we've given video/quiz a chance to appear.
+      await NS.dom.waitFor(() => NS.detector.hasPlayableVideo() || NS.detector.hasQuiz(), { timeout: 3500, interval: 300 });
       const { type } = NS.detector.classify();
       const lessonId = NS.dom.deriveLessonId(location.href, document.title);
+      NS.log?.('lesson classified as:', type, '·', document.title);
       badge(`handling ${type}`);
       await chrome.runtime.sendMessage({
         type: 'UPDATE_RUNSTATE',
