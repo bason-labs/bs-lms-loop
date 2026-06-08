@@ -102,6 +102,13 @@
     return ((document.body?.innerText || '').trim().length > 600);
   }
 
+  // Is this page somewhere the loop actually operates? Keeps the badge/automation off
+  // unrelated pages the bound tab may navigate to (images, dashboards, blank pages…).
+  function onLessonPage() {
+    if (/course|learning|courseware|xblock|lesson|unit|module|sequential|vertical/i.test(location.href)) return true;
+    return !!(NS.detector.contentIframe() || document.querySelector('video') || NS.detector.hasQuiz());
+  }
+
   async function runOnce() {
     if (running) return;
     running = true;
@@ -171,10 +178,11 @@
   async function maybeRun() {
     if (running) return; // a handler is active (or we're deferred) — skip the poll
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
-    const active = (rs?.status === 'running' || rs?.status === 'paused') && rs?.isTargetTab;
-    badge(rs?.status || 'idle', active);
-    if (!active) NS.cursor?.hide();
-    if (rs?.status === 'running' && rs?.isTargetTab) runOnce();
+    // Show / act only on the bound tab AND only on an actual lesson page.
+    const onTask = (rs?.status === 'running' || rs?.status === 'paused') && rs?.isTargetTab && onLessonPage();
+    badge(rs?.status || 'idle', onTask);
+    if (!onTask) NS.cursor?.hide();
+    if (rs?.status === 'running' && rs?.isTargetTab && onLessonPage()) runOnce();
   }
 
   chrome.runtime.onMessage.addListener((msg) => {
