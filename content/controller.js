@@ -13,7 +13,7 @@
   async function clickNext(config) {
     await NS.dom.sleep(config.delays.betweenLessonsMs);
     const next = NS.dom.findClickableByText(NS.selectors.nextButtonText) || NS.dom.findFirst(NS.selectors.nextSelectors);
-    return next ? NS.dom.simulateClick(next) : false;
+    return next ? NS.dom.clickVisible(next, 'Next') : false;
   }
 
   async function runOnce() {
@@ -49,6 +49,7 @@
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
     const active = rs?.status === 'running' || rs?.status === 'paused';
     badge(rs?.status || 'idle', active); // hidden unless the loop is active
+    if (!active) NS.cursor?.hide();
     if (rs?.status === 'running') runOnce();
   }
 

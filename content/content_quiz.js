@@ -21,15 +21,17 @@
   async function selectAndSubmit(indices, texts, scraped, config) {
     if (scraped.options.length && indices.length) {
       const chosen = new Set(indices);
-      scraped.options.forEach((o) => { if (chosen.has(o.index) && !o.input.checked) NS.dom.simulateClick(o.input); });
+      for (const o of scraped.options) {
+        if (chosen.has(o.index) && !o.input.checked) await NS.dom.clickVisible(o.input, 'Answer');
+      }
     }
     if (scraped.textInputs.length) {
       const val = texts[0] || 'N/A';
-      scraped.textInputs.forEach((t) => NS.dom.setNativeValue(t, val));
+      for (const ti of scraped.textInputs) await NS.dom.typeVisible(ti, val, 'Type');
     }
     if (config.quiz.forceSubmit) {
       const submit = NS.dom.findClickableByText(NS.selectors.submitButtonText) || NS.dom.findFirst(NS.selectors.submitSelectors);
-      if (submit) { NS.dom.simulateClick(submit); await NS.dom.sleep(config.delays.actionMs); }
+      if (submit) { await NS.dom.clickVisible(submit, 'Submit'); await NS.dom.sleep(config.delays.actionMs); }
     }
     return { ok: true };
   }
