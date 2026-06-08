@@ -49,12 +49,31 @@
     return { type: 'doc' };
   }
 
-  // Is the CURRENT lesson already completed? (read from the course outline in the top frame)
+  function currentVerticalId() {
+    const vert = location.href.match(/vertical\+block@([0-9a-f]+)/i);
+    if (vert) return vert[1];
+    const all = location.href.match(/block@([0-9a-f]+)/ig);
+    return all ? all[all.length - 1].replace(/block@/i, '') : null;
+  }
+
+  function hasCompleteMarker(el) {
+    if (!el) return false;
+    if (/đã hoàn thành|đã hoàn tất|completed\b/i.test(el.textContent || '')) return true;
+    return !!el.querySelector('[data-testid="check-circle-icon"], svg.text-success, .text-success');
+  }
+
+  // Is the CURRENT lesson already completed? Read from the course outline (top frame).
+  // Match the outline link whose href holds this unit's block id — more reliable than the
+  // active-row highlight — and check that row for a completion marker.
   function lessonComplete() {
+    const id = currentVerticalId();
+    if (id) {
+      const link = [...document.querySelectorAll('a[href]')].find((a) => (a.getAttribute('href') || '').includes(id));
+      const row = link ? (link.closest('li') || link) : null;
+      if (hasCompleteMarker(row)) return true;
+    }
     const active = document.querySelector('li.bg-info-100') || document.querySelector('[aria-current="page"]');
-    if (!active) return false;
-    if (/đã hoàn thành|đã hoàn tất|completed\b/i.test(active.textContent || '')) return true;
-    return !!active.querySelector('[data-testid="check-circle-icon"], .text-success');
+    return hasCompleteMarker(active);
   }
 
   NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo, contentIframe, lessonComplete };

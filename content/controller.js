@@ -153,8 +153,9 @@
     return all ? all[all.length - 1] : null;
   }
 
-  // Child frame: wait briefly for the top frame's completion verdict for this lesson.
-  async function waitForEval(token, timeout = 2000) {
+  // Child frame: wait for the top frame's completion verdict for this lesson.
+  // Must outlast the top frame's outline-render wait so we don't time out and play.
+  async function waitForEval(token, timeout = 5000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
       const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
@@ -177,6 +178,8 @@
       // Top frame: publish a completion verdict for this lesson so the content iframe
       // can read it (and skip playing an already-passed video).
       if (isTop) {
+        // Wait for the course outline to render so completion is actually readable.
+        await NS.dom.waitFor(() => document.querySelector('#outline-sidebar-outline, .outline-sidebar, li.bg-info-100'), { timeout: 3000, interval: 250 });
         const complete = NS.detector.lessonComplete();
         await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { eval: { vid: lessonToken(), complete } } }).catch(() => {});
         if (complete) {
