@@ -77,3 +77,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, info) => {
   const rs = await getRunState();
   if (rs.status === 'running' && rs.tabId === tabId) chrome.tabs.sendMessage(tabId, { type: 'RESUME' }).catch(() => {});
 });
+
+// Closing the working tab stops the loop.
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  const rs = await getRunState();
+  if (rs.tabId === tabId && rs.status !== 'idle') await setRunState({ status: 'idle', tabId: null });
+});
