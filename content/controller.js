@@ -1,15 +1,21 @@
-// content/controller.js — per-page orchestrator + status badge (loaded last).
+// content/controller.js — per-frame orchestrator + status badge (loaded last).
+// Runs in every frame (manifest all_frames). Each frame handles the media/quiz it can see;
+// only the TOP frame navigates (Next), stops, and shows the badge. This matters for LMSes
+// like Open edX (HUTECH) that render the lesson — including the <video> — inside a
+// cross-origin iframe while the Next button lives in the parent page.
 (function () {
   const NS = (globalThis.__LMS = globalThis.__LMS || {});
+  const isTop = window === window.top;
   let running = false;
   let lastLessonId = null;
   let stuckCount = 0;
 
   function badge(text, show = true) {
+    if (!isTop) return; // only the top frame shows the status pill
     let el = document.getElementById('__lms_badge');
     if (!el) { el = document.createElement('div'); el.id = '__lms_badge'; document.documentElement.appendChild(el); }
     el.textContent = `LMS Loop · ${text}`;
-    el.classList.toggle('__lms_show', show); // only visible while the loop is active
+    el.classList.toggle('__lms_show', show);
   }
 
   // Returns: 'advanced' | 'disabled' | 'no-next'
@@ -32,21 +38,27 @@
     running = true;
     try {
       const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
-      // Let the lesson settle: a player or quiz form often mounts shortly after load.
-      // Don't fall through to "doc" until we've given video/quiz a chance to appear.
+      // Let the frame settle — a player or quiz often mounts shortly after load.
       await NS.dom.waitFor(() => NS.detector.hasPlayableVideo() || NS.detector.hasQuiz(), { timeout: 3500, interval: 300 });
       const { type } = NS.detector.classify();
       const lessonId = NS.dom.deriveLessonId(location.href, document.title);
-      NS.log?.('lesson classified as:', type, '·', document.title);
-      badge(`handling ${type}`);
-      await chrome.runtime.sendMessage({
-        type: 'UPDATE_RUNSTATE',
-        patch: { currentType: type, currentLessonId: lessonId, lastAction: `handle:${type}` }
-      });
+      NS.log?.(`[${isTop ? 'top' : 'frame'}] classified as: ${type} · ${document.title}`);
 
+      if (isTop) {
+        badge(`handling ${type}`);
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_RUNSTATE',
+          patch: { currentType: type, currentLessonId: lessonId, lastAction: `handle:${type}` }
+        }).catch(() => {});
+      }
+
+      // Handle whatever content lives in THIS frame. doc text is only captured by the top frame.
       if (type === 'video') await NS.video.handleVideo(config);
       else if (type === 'quiz' && NS.quiz) await NS.quiz.handleQuiz(config);
-      else await NS.doc.handleDoc(lessonId, document.title);
+      else if (isTop) await NS.doc.handleDoc(lessonId, document.title);
+
+      // Navigation + stop logic happen only in the top frame.
+      if (!isTop) return;
 
       const result = await clickNext(config);
       if (result === 'advanced') {
@@ -56,7 +68,7 @@
       } else if (result === 'no-next') {
         badge('done');
         await stop('no Next found — course complete, stopping', 'course-complete');
-      } else { // 'disabled' — lesson gate not satisfied yet; let the observer retry
+      } else { // 'disabled' — gate not satisfied yet; let the observer retry
         badge(`waiting (${type})`);
         stuckCount = lessonId === lastLessonId ? stuckCount + 1 : 0;
         if (stuckCount >= 5) { badge('done'); await stop('stuck on the same lesson — stopping', 'stuck'); }
@@ -64,18 +76,19 @@
       lastLessonId = lessonId;
     } catch (e) {
       badge(`error: ${e?.message || e}`);
-      await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { error: String(e?.message || e) } }).catch(() => {});
+      if (isTop) await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { error: String(e?.message || e) } }).catch(() => {});
     } finally {
       running = false;
     }
   }
 
   async function maybeRun() {
-    if (running) return; // a handler is active; skip the GET_RUNSTATE poll until it finishes
+    if (running) return; // a handler is active; skip the poll until it finishes
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
-    // Only act on the tab the loop is bound to (isTargetTab comes from the background).
+    // Only act on the tab the loop is bound to (isTargetTab comes from the background;
+    // it's true for every frame inside that tab).
     const active = (rs?.status === 'running' || rs?.status === 'paused') && rs?.isTargetTab;
-    badge(rs?.status || 'idle', active); // hidden unless this is the active loop tab
+    badge(rs?.status || 'idle', active);
     if (!active) NS.cursor?.hide();
     if (rs?.status === 'running' && rs?.isTargetTab) runOnce();
   }
