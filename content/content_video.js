@@ -28,32 +28,48 @@
     return n && !NS.dom.isDisabled(n) ? n : false;
   }
 
+  // Mute, speed up, and seek to just before the end so the video plays out to a real
+  // 'ended' event (which is what LMS players watch for to mark completion).
+  function primeVideo(v, config) {
+    const seekNearEnd = () => {
+      if (config.video.skipToEnd && isFinite(v.duration) && v.duration > 1) {
+        try { v.currentTime = Math.max(0, v.duration - 1); } catch { /* some players block seek */ }
+      }
+    };
+    try {
+      v.muted = true;
+      v.playbackRate = config.video.playbackRate || 8;
+      v.play?.().catch(() => {});
+      if (v.readyState >= 1 && isFinite(v.duration) && v.duration > 0) seekNearEnd();
+      else v.addEventListener('loadedmetadata', seekNearEnd, { once: true });
+    } catch (e) { NS.log?.('could not control the <video>:', e?.message || e); }
+  }
+
+  function ended(v) {
+    return v.ended || (isFinite(v.duration) && v.duration > 0 && v.currentTime >= v.duration - 0.4);
+  }
+
   async function handleVideo(config) {
     const vids = await findVideos();
-    const v = vids[0];
-
-    if (v) {
-      NS.log?.('video found — speeding & seeking', { rate: config.video.playbackRate, duration: v.duration });
-      try {
-        v.muted = true;
-        v.playbackRate = config.video.playbackRate || 8;
-        await v.play?.().catch(() => {});
-        if (config.video.skipToEnd && isFinite(v.duration) && v.duration > 0) {
-          v.currentTime = Math.max(0, v.duration - 0.5);
-        }
-      } catch (e) { NS.log?.('could not control the <video> element:', e?.message || e); }
-    } else {
-      NS.log?.('video lesson, but no controllable <video> (likely a cross-origin player iframe). Waiting for the page to enable Next…');
+    if (!vids.length) {
+      NS.log?.('video lesson, but no controllable <video> (cross-origin player). Waiting for Next to enable…');
+      const ok = await NS.dom.waitFor(() => nextReady(), { timeout: 120000, interval: 600 });
+      return { ok: !!ok, controllable: false };
     }
 
-    // Completion = a reachable video ends, OR the Next control becomes enabled.
-    const done = await NS.dom.waitFor(() => {
-      if (vids.some((x) => x.ended)) return true;
-      return nextReady();
-    }, { timeout: 120000, interval: 600 });
+    NS.log?.('video found — speeding to the end', { count: vids.length, rate: config.video.playbackRate });
+    vids.forEach((v) => primeVideo(v, config));
 
-    NS.log?.(done ? 'video complete (ended or Next enabled)' : 'video wait timed out (120s) — advancing anyway');
-    return { ok: !!done, controllable: !!v };
+    // Wait until every reachable video has actually played to its end (re-prime if a
+    // player resets currentTime on seek), with a hard cap so we never hang forever.
+    const done = await NS.dom.waitFor(() => {
+      const pending = vids.filter((v) => !ended(v));
+      pending.forEach((v) => { if (v.paused) v.play?.().catch(() => {}); if (config.video.skipToEnd) primeVideo(v, config); });
+      return pending.length === 0;
+    }, { timeout: 120000, interval: 500 });
+
+    NS.log?.(done ? 'video ended' : 'video wait timed out (120s) — moving on');
+    return { ok: !!done, controllable: true };
   }
 
   NS.video = { handleVideo, reachableVideos };

@@ -25,6 +25,18 @@
     return reachableVideo() || document.querySelector(PLAYER_IFRAME) || null;
   }
 
+  // A child iframe that likely holds the lesson body (Open edX puts content in a
+  // cross-origin iframe). Used by the top frame to defer handling to that frame.
+  function contentIframe() {
+    return document.querySelector('iframe#unit-iframe, iframe.unit-iframe, iframe[src*="/xblock/"], iframe[src*="/content/"]')
+      || document.querySelector(PLAYER_IFRAME)
+      || [...document.querySelectorAll('iframe')].find((f) => {
+        const r = f.getBoundingClientRect();
+        return r.height >= 360 && r.width >= 420;
+      })
+      || null;
+  }
+
   function hasQuiz() {
     const inputs = document.querySelectorAll('input[type="radio"],input[type="checkbox"],textarea,input[type="text"]');
     const submit = NS.dom.findClickableByText(NS.selectors.submitButtonText) || NS.dom.findFirst(NS.selectors.submitSelectors);
@@ -37,5 +49,5 @@
     return { type: 'doc' };
   }
 
-  NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo };
+  NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo, contentIframe };
 })();

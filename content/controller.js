@@ -1,13 +1,17 @@
 // content/controller.js — per-frame orchestrator + status badge (loaded last).
-// Runs in every frame (manifest all_frames). Each frame handles the media/quiz it can see;
-// only the TOP frame navigates (Next), stops, and shows the badge. This matters for LMSes
-// like Open edX (HUTECH) that render the lesson — including the <video> — inside a
-// cross-origin iframe while the Next button lives in the parent page.
+// Runs in every frame (manifest all_frames).
+//   • A CHILD frame handles the media/quiz/doc it can see, then asks the top frame to advance.
+//   • The TOP frame handles content it can see directly (simple LMS); for content that lives in
+//     a child iframe (e.g. Open edX/HUTECH) it DEFERS, then clicks Next when the child signals
+//     it's done (or after a safety timeout). Only the top frame navigates / stops / shows badge.
 (function () {
   const NS = (globalThis.__LMS = globalThis.__LMS || {});
   const isTop = window === window.top;
   let running = false;
   let aborted = false;
+  let waitingAdvance = false;   // top frame: deferred, awaiting the child's ADVANCE
+  let pendingAdvance = false;   // top frame: ADVANCE arrived before we deferred
+  let fallbackTimer = 0;
   let lastLessonId = null;
   let stuckCount = 0;
 
@@ -21,6 +25,9 @@
       el.addEventListener('click', async () => {
         NS.log?.('badge clicked — stopping the loop');
         aborted = true;
+        waitingAdvance = false;
+        clearTimeout(fallbackTimer);
+        running = false;
         badge('stopped', false);
         NS.cursor?.hide();
         await chrome.runtime.sendMessage({ type: 'CONTROL', action: 'STOP' }).catch(() => {});
@@ -46,13 +53,72 @@
     await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { status: 'done', lastAction } }).catch(() => {});
   }
 
+  // Top frame: click Next and react to the result. Used both for simple-LMS lessons
+  // and when a child frame has signalled it's done.
+  async function navigate(config) {
+    const lessonId = NS.dom.deriveLessonId(location.href, document.title);
+    const result = await clickNext(config);
+    if (result === 'advanced') {
+      stuckCount = 0;
+      badge('advanced');
+      if (config.mode === 'step') await chrome.runtime.sendMessage({ type: 'CONTROL', action: 'STOP' });
+    } else if (result === 'no-next') {
+      badge('done');
+      await stop('no Next found — course complete, stopping', 'course-complete');
+    } else { // 'disabled'
+      badge('waiting');
+      stuckCount = lessonId === lastLessonId ? stuckCount + 1 : 0;
+      if (stuckCount >= 5) { badge('done'); await stop('stuck on the same lesson — stopping', 'stuck'); }
+    }
+    lastLessonId = lessonId;
+  }
+
+  function armFallback() {
+    clearTimeout(fallbackTimer);
+    fallbackTimer = setTimeout(() => { NS.log?.('no advance signal from frame — advancing (fallback)'); advance(); }, 135000);
+  }
+
+  // Top frame: perform the deferred advance once the child says it's done.
+  async function advance() {
+    if (!waitingAdvance) return;
+    waitingAdvance = false;
+    clearTimeout(fallbackTimer);
+    if (aborted) { running = false; return; }
+    try {
+      const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
+      await navigate(config);
+    } catch (e) {
+      NS.log?.('advance error:', e?.message || e);
+    } finally {
+      running = false;
+    }
+  }
+
+  function isContentDocFrame() {
+    if (isTop) return false;
+    if (/(xblock|content|lesson|unit|module|courseware)/i.test(location.pathname)) return true;
+    return ((document.body?.innerText || '').trim().length > 600);
+  }
+
   async function runOnce() {
     if (running) return;
     running = true;
     aborted = false;
     try {
       const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
-      // Let the frame settle — a player or quiz often mounts shortly after load.
+
+      // TOP frame whose content lives in a child iframe → defer to that frame.
+      if (isTop && !document.querySelector('video') && !NS.detector.hasQuiz() && NS.detector.contentIframe()) {
+        NS.log?.('[top] content is in a child frame — deferring, will advance when it finishes');
+        badge('watching lesson');
+        await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { lastAction: 'await-frame' } }).catch(() => {});
+        waitingAdvance = true;
+        armFallback();
+        if (pendingAdvance) { pendingAdvance = false; advance(); } // child already finished
+        return; // keep `running` locked until advance() releases it
+      }
+
+      // Otherwise classify and handle what THIS frame can see.
       await NS.dom.waitFor(() => NS.detector.hasPlayableVideo() || NS.detector.hasQuiz(), { timeout: 3500, interval: 300 });
       const { type } = NS.detector.classify();
       const lessonId = NS.dom.deriveLessonId(location.href, document.title);
@@ -64,50 +130,47 @@
           type: 'UPDATE_RUNSTATE',
           patch: { currentType: type, currentLessonId: lessonId, lastAction: `handle:${type}` }
         }).catch(() => {});
+
+        if (type === 'video') await NS.video.handleVideo(config);
+        else if (type === 'quiz' && NS.quiz) await NS.quiz.handleQuiz(config);
+        else await NS.doc.handleDoc(lessonId, document.title);
+
+        if (!aborted) await navigate(config);
+        return;
       }
 
-      // Handle whatever content lives in THIS frame. doc text is only captured by the top frame.
-      if (type === 'video') await NS.video.handleVideo(config);
-      else if (type === 'quiz' && NS.quiz) await NS.quiz.handleQuiz(config);
-      else if (isTop) await NS.doc.handleDoc(lessonId, document.title);
+      // CHILD frame: handle local content, then ask the top frame to advance.
+      let handled = false;
+      if (type === 'video') { await NS.video.handleVideo(config); handled = true; }
+      else if (type === 'quiz' && NS.quiz) { await NS.quiz.handleQuiz(config); handled = true; }
+      else if (isContentDocFrame()) { await NS.doc.handleDoc(lessonId, document.title); handled = true; }
 
-      // Navigation + stop logic happen only in the top frame.
-      if (!isTop || aborted) return; // badge-click stop: don't advance
-
-      const result = await clickNext(config);
-      if (result === 'advanced') {
-        stuckCount = 0;
-        badge(`advanced from ${type}`);
-        if (config.mode === 'step') await chrome.runtime.sendMessage({ type: 'CONTROL', action: 'STOP' });
-      } else if (result === 'no-next') {
-        badge('done');
-        await stop('no Next found — course complete, stopping', 'course-complete');
-      } else { // 'disabled' — gate not satisfied yet; let the observer retry
-        badge(`waiting (${type})`);
-        stuckCount = lessonId === lastLessonId ? stuckCount + 1 : 0;
-        if (stuckCount >= 5) { badge('done'); await stop('stuck on the same lesson — stopping', 'stuck'); }
+      if (handled && !aborted) {
+        await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { currentType: type } }).catch(() => {});
+        NS.log?.('[frame] content handled — requesting advance');
+        await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE' }).catch(() => {});
       }
-      lastLessonId = lessonId;
     } catch (e) {
       badge(`error: ${e?.message || e}`);
       if (isTop) await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { error: String(e?.message || e) } }).catch(() => {});
     } finally {
-      running = false;
+      if (!waitingAdvance) running = false; // stay locked while deferred
     }
   }
 
   async function maybeRun() {
-    if (running) return; // a handler is active; skip the poll until it finishes
+    if (running) return; // a handler is active (or we're deferred) — skip the poll
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
-    // Only act on the tab the loop is bound to (isTargetTab comes from the background;
-    // it's true for every frame inside that tab).
     const active = (rs?.status === 'running' || rs?.status === 'paused') && rs?.isTargetTab;
     badge(rs?.status || 'idle', active);
     if (!active) NS.cursor?.hide();
     if (rs?.status === 'running' && rs?.isTargetTab) runOnce();
   }
 
-  chrome.runtime.onMessage.addListener((msg) => { if (msg?.type === 'RESUME') maybeRun(); });
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === 'RESUME') maybeRun();
+    else if (msg?.type === 'ADVANCE' && isTop) { if (waitingAdvance) advance(); else pendingAdvance = true; }
+  });
 
   // SPA resilience: re-evaluate after DOM settles (debounced).
   let t;
