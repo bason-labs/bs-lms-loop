@@ -1239,3 +1239,4 @@ git commit -m "feat: live LLM solver with RAG context + Test key + error fallbac
 - **API key at rest:** stored unencrypted in `chrome.storage.local` — fine for personal use, not for shared profiles.
 - **`<all_urls>`:** broad by design; narrow `matches`/`host_permissions` to the real LMS origin to tighten the footprint once known.
 - **Cross-origin video/quiz iframes:** handlers operate on same-origin DOM; players/quizzes inside cross-origin iframes are out of reach for v0.1 (would need `all_frames` + per-frame injection — deferred).
+- **Multi-tab `RESUME` (known limitation, v0.1):** `chrome.tabs.onUpdated` sends `RESUME` to *any* tab that finishes loading while `runState.status === 'running'`, not only the course tab. The content script self-gates on lesson detection, so harm is limited, but a future hardening should record `currentTabId` in `runState` (captured on START) and filter the listener by it. Deferred to avoid expanding the approved schema mid-build.
