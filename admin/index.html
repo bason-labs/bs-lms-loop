@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LMS Loop — Access Admin</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header class="bar">
+    <span class="brand">LMS Loop · Access</span>
+    <span class="spacer"></span>
+    <span id="who" class="who"></span>
+    <button id="auth-btn" class="btn">Sign in</button>
+  </header>
+
+  <main class="wrap">
+    <section id="gate" class="card">
+      <p>Sign in with an admin Google account to manage the whitelist.</p>
+    </section>
+
+    <section id="panel" class="card" hidden>
+      <h2>Allowed accounts</h2>
+      <form id="add-form" class="add-row">
+        <input id="email" class="input" type="email" placeholder="user@example.com" required>
+        <button class="btn primary" type="submit">Add</button>
+      </form>
+      <p id="msg" class="msg"></p>
+      <table class="list">
+        <thead><tr><th>Email</th><th>Added</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
