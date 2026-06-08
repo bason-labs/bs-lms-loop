@@ -7,13 +7,26 @@
   const NS = (globalThis.__LMS = globalThis.__LMS || {});
   const isTop = window === window.top;
   let running = false;
+  let aborted = false;
   let lastLessonId = null;
   let stuckCount = 0;
 
   function badge(text, show = true) {
     if (!isTop) return; // only the top frame shows the status pill
     let el = document.getElementById('__lms_badge');
-    if (!el) { el = document.createElement('div'); el.id = '__lms_badge'; document.documentElement.appendChild(el); }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '__lms_badge';
+      el.title = 'Click to stop';
+      el.addEventListener('click', async () => {
+        NS.log?.('badge clicked — stopping the loop');
+        aborted = true;
+        badge('stopped', false);
+        NS.cursor?.hide();
+        await chrome.runtime.sendMessage({ type: 'CONTROL', action: 'STOP' }).catch(() => {});
+      });
+      document.documentElement.appendChild(el);
+    }
     el.textContent = `LMS Loop · ${text}`;
     el.classList.toggle('__lms_show', show);
   }
@@ -36,6 +49,7 @@
   async function runOnce() {
     if (running) return;
     running = true;
+    aborted = false;
     try {
       const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
       // Let the frame settle — a player or quiz often mounts shortly after load.
@@ -58,7 +72,7 @@
       else if (isTop) await NS.doc.handleDoc(lessonId, document.title);
 
       // Navigation + stop logic happen only in the top frame.
-      if (!isTop) return;
+      if (!isTop || aborted) return; // badge-click stop: don't advance
 
       const result = await clickNext(config);
       if (result === 'advanced') {

@@ -34,13 +34,17 @@
   cursor: default !important;
   -webkit-user-select: none !important;
   user-select: none !important;
-  pointer-events: none !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: filter .15s ease, transform .15s ease !important;
 }
 
 #__lms_badge.__lms_show {
   display: inline-flex !important;
   animation: __lms_in .38s cubic-bezier(.2, .8, .2, 1) !important;
 }
+#__lms_badge:hover { filter: brightness(1.18) !important; transform: translateY(-1px) !important; }
+#__lms_badge:active { transform: translateY(0) !important; }
 
 /* leading status dot — cyan→green with a soft pulse */
 #__lms_badge::before {
