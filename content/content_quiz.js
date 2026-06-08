@@ -16,8 +16,6 @@
     return { question, options, textInputs };
   }
 
-  function pickRandom(n) { return n > 0 ? [Math.floor(Math.random() * n)] : []; }
-
   async function selectAndSubmit(indices, texts, scraped, config) {
     if (scraped.options.length && indices.length) {
       const chosen = new Set(indices);
@@ -37,17 +35,18 @@
   }
 
   async function handleQuiz(config) {
+    // No API key → don't attempt the quiz at all; just move on to the next lesson.
+    if (!config.llm.apiKey) { NS.log?.('quiz: no API key — skipping to next lesson'); return { ok: true, skipped: true }; }
+
     const scraped = scrape();
-    if (config.llm.apiKey) {
-      const res = await chrome.runtime.sendMessage({
-        type: 'SOLVE_QUIZ',
-        payload: { question: scraped.question, options: scraped.options.map((o) => o.text) }
-      });
-      if (res?.answer) return selectAndSubmit(res.answer.answerIndices, res.answer.answerText, scraped, config);
-      // NO_KEY / error → fall through to fallback
-    }
-    if (config.quiz.fallback === 'skip') return { ok: true, skipped: true };
-    return selectAndSubmit(pickRandom(scraped.options.length), [], scraped, config);
+    const res = await chrome.runtime.sendMessage({
+      type: 'SOLVE_QUIZ',
+      payload: { question: scraped.question, options: scraped.options.map((o) => o.text) }
+    }).catch(() => null);
+
+    if (res?.answer) return selectAndSubmit(res.answer.answerIndices, res.answer.answerText, scraped, config);
+    NS.log?.('quiz: solver unavailable — skipping to next lesson', res?.error || '');
+    return { ok: true, skipped: true };
   }
 
   NS.quiz = { scrape, handleQuiz };

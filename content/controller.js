@@ -41,7 +41,9 @@
   // Returns: 'advanced' | 'disabled' | 'no-next'
   async function clickNext(config) {
     await NS.dom.sleep(config.delays.betweenLessonsMs);
-    const next = NS.dom.findClickableByText(NS.selectors.nextButtonText) || NS.dom.findFirst(NS.selectors.nextSelectors);
+    const next = NS.dom.findFirst(NS.selectors.primaryNextSelectors || [])
+      || NS.dom.findClickableByText(NS.selectors.nextButtonText)
+      || NS.dom.findFirst(NS.selectors.nextSelectors);
     if (!next) { NS.log?.('no Next control found — end of course'); return 'no-next'; }
     if (NS.dom.isDisabled(next)) { NS.log?.('Next is still disabled — lesson not complete yet'); return 'disabled'; }
     await NS.dom.clickVisible(next, 'Next');
@@ -106,6 +108,14 @@
     aborted = false;
     try {
       const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
+
+      // Already-completed lesson → don't re-handle, just advance to the next one.
+      if (isTop && NS.detector.lessonComplete()) {
+        NS.log?.('[top] lesson already complete — advancing');
+        badge('already done');
+        if (!aborted) await navigate(config);
+        return;
+      }
 
       // TOP frame whose content lives in a child iframe → defer to that frame.
       if (isTop && !document.querySelector('video') && !NS.detector.hasQuiz() && NS.detector.contentIframe()) {
