@@ -8,7 +8,7 @@
     const choiceInputs = [...document.querySelectorAll('input[type="radio"],input[type="checkbox"]')];
     const options = choiceInputs.map((input, i) => {
       const label = input.closest('label')
-        || (input.id && document.querySelector(`label[for="${input.id}"]`))
+        || (input.id && document.querySelector(`label[for="${CSS.escape(input.id)}"]`))
         || input.parentElement;
       return { index: i, text: NS.dom.norm(label?.innerText) || `option ${i}`, input };
     });
