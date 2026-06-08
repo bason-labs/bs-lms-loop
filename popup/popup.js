@@ -21,6 +21,7 @@ const I18N = {
     sec_behavior: 'Behavior', lbl_video: 'Video speed', lbl_fallback: 'No-key quiz fallback',
     fb_random: 'Random fill', fb_skip: 'Skip',
     foot: 'Runs on the active tab · state survives reloads', ttl_theme: 'Toggle theme',
+    soon: 'Coming soon',
     test_checking: 'checking…', test_ok: 'key works ✓',
     status: { idle: 'idle', running: 'running', paused: 'paused', done: 'done', error: 'error' },
     type: { video: 'video', doc: 'document', quiz: 'quiz' },
@@ -42,6 +43,7 @@ const I18N = {
     sec_behavior: 'Hành vi', lbl_video: 'Tốc độ video', lbl_fallback: 'Khi không có khóa',
     fb_random: 'Điền ngẫu nhiên', fb_skip: 'Bỏ qua',
     foot: 'Chạy trên tab hiện tại · giữ trạng thái khi tải lại', ttl_theme: 'Đổi giao diện',
+    soon: 'Sắp ra mắt',
     test_checking: 'đang kiểm tra…', test_ok: 'khóa hợp lệ ✓',
     status: { idle: 'chờ', running: 'đang chạy', paused: 'tạm dừng', done: 'xong', error: 'lỗi' },
     type: { video: 'video', doc: 'tài liệu', quiz: 'trắc nghiệm' },
@@ -252,6 +254,9 @@ $('adv-toggle').addEventListener('click', () => {
   applyTheme(prefs.theme);
   applyI18n(prefs.lang);
   fill(await getConfig());
+  // Lock the "coming soon" section: non-focusable, non-interactive.
+  const soon = document.querySelector('.card--soon');
+  if (soon) soon.inert = true;
   await refresh();
   setInterval(refresh, 1500); // live status while the popup is open
 })();
