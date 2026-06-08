@@ -156,8 +156,10 @@ test('emailHash is SHA-256 of the normalized email', async () => {
   assert.equal(await emailHash('  A@B.com '), expected);
 });
 
-test('parseUserinfo extracts a normalized email or null', () => {
+test('parseUserinfo extracts a normalized, verified email or null', () => {
   assert.equal(parseUserinfo({ email: 'X@Y.com', email_verified: true }), 'x@y.com');
+  assert.equal(parseUserinfo({ email: 'x@y.com' }), 'x@y.com');
+  assert.equal(parseUserinfo({ email: 'x@y.com', email_verified: false }), null);
   assert.equal(parseUserinfo({}), null);
 });
 
@@ -198,7 +200,7 @@ export async function emailHash(email) {
 }
 
 export function parseUserinfo(json) {
-  return json && json.email ? normalizeEmail(json.email) : null;
+  return json && json.email && json.email_verified !== false ? normalizeEmail(json.email) : null;
 }
 
 export function whitelistDocUrl(projectId, hash) {
@@ -250,7 +252,7 @@ export function signOut() {
     chrome.identity.getAuthToken({ interactive: false }, (token) => {
       if (chrome.runtime.lastError || !token) return resolve();
       chrome.identity.removeCachedAuthToken({ token }, () => {
-        fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`).finally(resolve);
+        fetch(`https://accounts.google.com/o/oauth2/revoke?token=${encodeURIComponent(token)}`).finally(resolve);
       });
     });
   });
