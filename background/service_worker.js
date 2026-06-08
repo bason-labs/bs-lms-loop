@@ -1,6 +1,7 @@
 // background/service_worker.js — message router + run-state owner (ES module worker).
 import { getConfig, getRunState, setRunState, saveLessonText, getKb } from '../lib/storage.js';
 import { callLlm } from '../lib/llm_adapter.js';
+import { checkAccess, signOut } from '../lib/auth.js';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handle(msg, sender).then(sendResponse).catch((e) => sendResponse({ error: String(e?.message || e) }));
@@ -10,6 +11,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 async function handle(msg, sender) {
   switch (msg?.type) {
     case 'GET_CONFIG': return await getConfig();
+    case 'GET_AUTH': return (await chrome.storage.local.get('auth')).auth || { allowed: false, email: null, checkedAt: 0 };
+    case 'CHECK_ACCESS': {
+      let result;
+      try { result = await checkAccess(msg.interactive !== false); }
+      catch (e) { result = { allowed: false, email: null, error: String(e?.message || e) }; }
+      const auth = { email: result.email, allowed: !!result.allowed, checkedAt: Date.now(), error: result.error || null };
+      await chrome.storage.local.set({ auth });
+      return auth;
+    }
+    case 'SIGN_OUT': {
+      await signOut();
+      await chrome.storage.local.set({ auth: { allowed: false, email: null, checkedAt: 0 } });
+      return { ok: true };
+    }
     case 'GET_RUNSTATE': {
       const rs = await getRunState();
       // Tell a content script whether it lives in the tab the loop is bound to.
@@ -32,8 +47,15 @@ async function handle(msg, sender) {
 async function control(action, tabId) {
   if (action === 'STOP') return { ok: true, runState: await setRunState({ status: 'idle', tabId: null }) };
   if (action === 'START' || action === 'STEP') {
+    // Re-check access silently; block the loop if the account isn't whitelisted.
+    let allowed = false;
+    try { allowed = (await checkAccess(false)).allowed; } catch { allowed = false; }
+    if (!allowed) {
+      await chrome.storage.local.set({ auth: { allowed: false, email: null, checkedAt: Date.now() } });
+      return { ok: false, error: 'NOT_AUTHORIZED' };
+    }
     const runState = await setRunState({ status: 'running', error: null, tabId: tabId ?? null });
-    if (tabId != null) chrome.tabs.sendMessage(tabId, { type: 'RESUME' }).catch(() => {}); // kick off promptly
+    if (tabId != null) chrome.tabs.sendMessage(tabId, { type: 'RESUME' }).catch(() => {});
     return { ok: true, runState };
   }
   throw new Error(`Bad control action: ${action}`);
