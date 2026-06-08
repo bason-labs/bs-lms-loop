@@ -3,10 +3,11 @@
   const NS = (globalThis.__LMS = globalThis.__LMS || {});
   let running = false;
 
-  function badge(text) {
+  function badge(text, show = true) {
     let el = document.getElementById('__lms_badge');
     if (!el) { el = document.createElement('div'); el.id = '__lms_badge'; document.documentElement.appendChild(el); }
-    el.textContent = `LMS Loop: ${text}`;
+    el.textContent = `LMS Loop · ${text}`;
+    el.classList.toggle('__lms_show', show); // only visible while the loop is active
   }
 
   async function clickNext(config) {
@@ -46,7 +47,8 @@
   async function maybeRun() {
     if (running) return; // a handler is active; skip the GET_RUNSTATE poll until it finishes
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
-    badge(rs?.status || 'idle');
+    const active = rs?.status === 'running' || rs?.status === 'paused';
+    badge(rs?.status || 'idle', active); // hidden unless the loop is active
     if (rs?.status === 'running') runOnce();
   }
 
