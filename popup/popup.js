@@ -272,9 +272,18 @@ $('adv-toggle').addEventListener('click', () => {
   $('adv-toggle').setAttribute('aria-expanded', String(open));
 });
 
+let polling = false;
+function startPolling() {
+  if (polling) return; // idempotent — never stack intervals
+  polling = true;
+  refresh();
+  setInterval(refresh, 1500); // live status while the popup is open
+}
+
 $('signin').addEventListener('click', async () => {
   $('gate-sub').textContent = 'Checking…';
-  await refreshAuth(true);
+  const auth = await refreshAuth(true);
+  if (auth?.allowed) startPolling(); // begin live status once authorized via the gate
 });
 $('signout').addEventListener('click', async () => {
   await chrome.runtime.sendMessage({ type: 'SIGN_OUT' }).catch(() => {});
@@ -292,6 +301,5 @@ $('signout').addEventListener('click', async () => {
   if (soon) soon.inert = true;
   const auth = await refreshAuth(false);   // cached; no Google prompt on open
   if (!auth?.allowed) return;               // stay on the gate until signed in
-  await refresh();
-  setInterval(refresh, 1500); // live status while the popup is open
+  startPolling();
 })();
