@@ -20,3 +20,12 @@ test('deriveLessonId is stable for same url+title', () => {
 test('deriveLessonId differs across lessons', () => {
   assert.notEqual(dom.deriveLessonId('https://lms/x/1', 'A'), dom.deriveLessonId('https://lms/x/2', 'A'));
 });
+
+test('deriveLessonId normalizes title whitespace (no duplicate ids from scraping)', () => {
+  assert.equal(dom.deriveLessonId('https://lms/x/1', 'Intro'), dom.deriveLessonId('https://lms/x/1', '  Intro \n'));
+});
+
+test('deriveLessonId tolerates a non-URL string without throwing', () => {
+  const id = dom.deriveLessonId('not-a-url', 'X');
+  assert.match(id, /^L[0-9a-z]+$/);
+});
