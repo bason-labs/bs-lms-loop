@@ -18,6 +18,11 @@ async function handle(msg, sender) {
     case 'UPDATE_RUNSTATE': return { ok: true, runState: await setRunState(msg.patch || {}) };
     case 'SAVE_LESSON_TEXT': await saveLessonText(msg.lesson); return { ok: true };
     case 'CONTROL': return await control(msg.action, msg.tabId);
+    case 'REQUEST_ADVANCE': {
+      // A child frame finished its content and wants the top frame to click Next.
+      if (sender?.tab) chrome.tabs.sendMessage(sender.tab.id, { type: 'ADVANCE' }, { frameId: 0 }).catch(() => {});
+      return { ok: true };
+    }
     case 'SOLVE_QUIZ': return await solveQuiz(msg.payload);
     case 'TEST_KEY': return await testKey(msg.llm);
     default: throw new Error(`Unknown message: ${msg?.type}`);
