@@ -480,9 +480,18 @@ async function refreshAuth(interactive) {
 
 Add these listeners (next to the other `addEventListener` calls):
 ```js
+let polling = false;
+function startPolling() {
+  if (polling) return; // idempotent — never stack intervals
+  polling = true;
+  refresh();
+  setInterval(refresh, 1500);
+}
+
 $('signin').addEventListener('click', async () => {
   $('gate-sub').textContent = 'Checking…';
-  await refreshAuth(true);
+  const auth = await refreshAuth(true);
+  if (auth?.allowed) startPolling(); // begin live status once authorized via the gate
 });
 $('signout').addEventListener('click', async () => {
   await chrome.runtime.sendMessage({ type: 'SIGN_OUT' }).catch(() => {});
@@ -496,8 +505,9 @@ In the boot IIFE at the bottom of `popup.js`, after `fill(await getConfig())` an
 ```js
   const auth = await refreshAuth(false);   // cached; no Google prompt on open
   if (!auth?.allowed) return;               // stay on the gate until signed in
+  startPolling();
 ```
-Keep the existing `await refresh(); setInterval(refresh, 1500);` lines after it (they now only run when authorized).
+`startPolling()` (defined with the sign-in handler) starts the live status poll; it's idempotent so the gate sign-in path and boot both call it safely.
 
 - [ ] **Step 4: Handle the START "not authorized" response**
 
