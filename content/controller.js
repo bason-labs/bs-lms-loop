@@ -109,6 +109,27 @@
     return !!(NS.detector.contentIframe() || document.querySelector('video') || NS.detector.hasQuiz());
   }
 
+  // Stable per-lesson token shared by the parent page and its content iframe
+  // (Open edX puts the same `vertical+block@<id>` in both URLs). Lets the top frame's
+  // completion verdict reach the child frame so it won't play already-passed videos.
+  function lessonToken() {
+    const vert = location.href.match(/vertical\+block@([0-9a-f]+)/i);
+    if (vert) return vert[1];
+    const all = location.href.match(/block@([0-9a-f]+)/ig);
+    return all ? all[all.length - 1] : null;
+  }
+
+  // Child frame: wait briefly for the top frame's completion verdict for this lesson.
+  async function waitForEval(token, timeout = 2000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
+      if (rs?.eval && rs.eval.vid === token) return rs.eval;
+      await NS.dom.sleep(200);
+    }
+    return null;
+  }
+
   async function runOnce() {
     if (running) return;
     running = true;
@@ -116,12 +137,17 @@
     try {
       const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
 
-      // Already-completed lesson → don't re-handle, just advance to the next one.
-      if (isTop && NS.detector.lessonComplete()) {
-        NS.log?.('[top] lesson already complete — advancing');
-        badge('already done');
-        if (!aborted) await navigate(config);
-        return;
+      // Top frame: publish a completion verdict for this lesson so the content iframe
+      // can read it (and skip playing an already-passed video).
+      if (isTop) {
+        const complete = NS.detector.lessonComplete();
+        await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { eval: { vid: lessonToken(), complete } } }).catch(() => {});
+        if (complete) {
+          NS.log?.('[top] lesson already complete — advancing without handling');
+          badge('already done');
+          if (!aborted) await navigate(config);
+          return;
+        }
       }
 
       // TOP frame whose content lives in a child iframe → defer to that frame.
@@ -154,6 +180,14 @@
 
         if (!aborted) await navigate(config);
         return;
+      }
+
+      // CHILD frame: if the top frame says this lesson is already complete, stand down
+      // (don't play the video) — the top frame will navigate to the next lesson.
+      const token = lessonToken();
+      if (token) {
+        const ev = await waitForEval(token);
+        if (ev && ev.complete) { NS.log?.('[frame] lesson already complete — not playing'); return; }
       }
 
       // CHILD frame: handle local content, then ask the top frame to advance.
