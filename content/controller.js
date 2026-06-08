@@ -11,9 +11,13 @@
   let aborted = false;
   let waitingAdvance = false;   // top frame: deferred, awaiting the child's ADVANCE
   let pendingAdvance = false;   // top frame: ADVANCE arrived before we deferred
+  let pendingType = null;
   let fallbackTimer = 0;
   let lastLessonId = null;
   let stuckCount = 0;
+  let videoRetries = 0;
+  let processingAdvance = false;
+  const MAX_VIDEO_RETRIES = 3;
 
   function badge(text, show = true) {
     if (!isTop) return; // only the top frame shows the status pill
@@ -77,11 +81,11 @@
 
   function armFallback() {
     clearTimeout(fallbackTimer);
-    fallbackTimer = setTimeout(() => { NS.log?.('no advance signal from frame — advancing (fallback)'); advance(); }, 135000);
+    fallbackTimer = setTimeout(() => { NS.log?.('no advance signal from frame — advancing (fallback)'); doNavigate(); }, 200000);
   }
 
-  // Top frame: perform the deferred advance once the child says it's done.
-  async function advance() {
+  // Top frame: actually release the deferred state and click Next.
+  async function doNavigate() {
     if (!waitingAdvance) return;
     waitingAdvance = false;
     clearTimeout(fallbackTimer);
@@ -93,6 +97,32 @@
       NS.log?.('advance error:', e?.message || e);
     } finally {
       running = false;
+    }
+  }
+
+  // Top frame: a child frame says it finished. If it was a video that still isn't marked
+  // complete, ask the child to re-watch (a few times) before giving up and advancing.
+  async function onAdvanceSignal(lessonType) {
+    if (!waitingAdvance) { pendingAdvance = true; pendingType = lessonType; return; }
+    if (processingAdvance) return;
+    processingAdvance = true;
+    try {
+      if (lessonType === 'video') {
+        // edX updates the outline a beat after the video ends — give it a moment.
+        const complete = await NS.dom.waitFor(() => NS.detector.lessonComplete(), { timeout: 5000, interval: 400 });
+        if (!complete && videoRetries < MAX_VIDEO_RETRIES) {
+          videoRetries += 1;
+          NS.log?.(`video not marked complete yet — re-watching (${videoRetries}/${MAX_VIDEO_RETRIES})`);
+          badge(`re-watching video (${videoRetries})`);
+          armFallback();
+          await chrome.runtime.sendMessage({ type: 'BROADCAST_RETRY' }).catch(() => {});
+          return; // stay deferred; the child will replay then signal again
+        }
+        if (!complete) NS.log?.('video still not complete after retries — advancing anyway');
+      }
+      await doNavigate();
+    } finally {
+      processingAdvance = false;
     }
   }
 
@@ -156,9 +186,10 @@
         badge('watching lesson');
         await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { lastAction: 'await-frame' } }).catch(() => {});
         waitingAdvance = true;
+        videoRetries = 0;
         armFallback();
-        if (pendingAdvance) { pendingAdvance = false; advance(); } // child already finished
-        return; // keep `running` locked until advance() releases it
+        if (pendingAdvance) { pendingAdvance = false; onAdvanceSignal(pendingType); } // child already finished
+        return; // keep `running` locked until doNavigate() releases it
       }
 
       // Otherwise classify and handle what THIS frame can see.
@@ -199,7 +230,7 @@
       if (handled && !aborted) {
         await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { currentType: type } }).catch(() => {});
         NS.log?.('[frame] content handled — requesting advance');
-        await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE' }).catch(() => {});
+        await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: type }).catch(() => {});
       }
     } catch (e) {
       badge(`error: ${e?.message || e}`);
@@ -219,9 +250,24 @@
     if (rs?.status === 'running' && rs?.isTargetTab && onLessonPage()) runOnce();
   }
 
+  // Child frame: top asked us to re-watch the video (it isn't marked complete yet).
+  async function replayVideo() {
+    if (running) return;
+    running = true;
+    try {
+      const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
+      NS.video.reachableVideos().forEach((v) => { try { v.currentTime = 0; } catch { /* ignore */ } });
+      await NS.video.handleVideo(config);
+      if (!aborted) await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: 'video' }).catch(() => {});
+    } finally {
+      running = false;
+    }
+  }
+
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg?.type === 'RESUME') maybeRun();
-    else if (msg?.type === 'ADVANCE' && isTop) { if (waitingAdvance) advance(); else pendingAdvance = true; }
+    else if (msg?.type === 'ADVANCE' && isTop) onAdvanceSignal(msg.lessonType);
+    else if (msg?.type === 'RETRY' && !isTop) replayVideo();
   });
 
   // SPA resilience: re-evaluate after DOM settles (debounced).
