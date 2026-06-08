@@ -9,6 +9,7 @@
   const isTop = window === window.top;
   let running = false;
   let aborted = false;
+  let userStopped = false;
   let waitingAdvance = false;   // top frame: deferred, awaiting the child's ADVANCE
   let pendingAdvance = false;   // top frame: ADVANCE arrived before we deferred
   let pendingType = null;
@@ -274,8 +275,17 @@
     }
   }
 
+  // Was THIS page load a manual reload (F5), as opposed to SPA navigation by the loop?
+  function wasReloaded() {
+    try {
+      const nav = performance.getEntriesByType('navigation')[0];
+      if (nav && nav.type) return nav.type === 'reload';
+      return performance.navigation && performance.navigation.type === 1; // legacy
+    } catch { return false; }
+  }
+
   async function maybeRun() {
-    if (running) return; // a handler is active (or we're deferred) — skip the poll
+    if (userStopped || running) return; // a handler is active, deferred, or the user reloaded
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
     // Show / act only on the bound tab AND only on an actual lesson page.
     const onTask = (rs?.status === 'running' || rs?.status === 'paused') && rs?.isTargetTab && onLessonPage();
@@ -294,5 +304,18 @@
   new MutationObserver(() => { clearTimeout(t); t = setTimeout(maybeRun, 800); })
     .observe(document.documentElement, { childList: true, subtree: true });
 
-  maybeRun();
+  (async () => {
+    // A manual page reload stops the loop (the loop itself navigates via SPA, not reloads).
+    if (isTop && wasReloaded()) {
+      const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
+      if (rs?.status === 'running' && rs?.isTargetTab) {
+        userStopped = true;
+        NS.log?.('page reloaded by the user — stopping the loop');
+        badge('stopped', false);
+        await chrome.runtime.sendMessage({ type: 'CONTROL', action: 'STOP' }).catch(() => {});
+        return;
+      }
+    }
+    maybeRun();
+  })();
 })();
