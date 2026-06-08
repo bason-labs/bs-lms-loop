@@ -2,13 +2,21 @@
   "manifest_version": 3,
   "name": "LMS Loop",
   "version": "0.1.0",
-  "permissions": ["storage", "scripting", "activeTab", "tabs"],
+  "key": "PASTE_THE_BASE64_KEY_FROM_PHASE_0_STEP_3",
+  "permissions": ["storage", "scripting", "activeTab", "tabs", "identity"],
   "host_permissions": [
     "<all_urls>",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://www.googleapis.com/*",
+    "https://firestore.googleapis.com/*",
+    "https://accounts.google.com/*"
   ],
+  "oauth2": {
+    "client_id": "PASTE_THE_OAUTH_CLIENT_ID_FROM_PHASE_0_STEP_3",
+    "scopes": ["openid", "email", "profile"]
+  },
   "background": { "service_worker": "background/service_worker.js", "type": "module" },
   "action": { "default_popup": "popup/popup.html" },
   "content_scripts": [
