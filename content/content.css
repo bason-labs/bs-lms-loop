@@ -1,0 +1,5 @@
+#__lms_badge {
+  position: fixed; z-index: 2147483647; top: 8px; right: 8px;
+  background: #111; color: #19e019; font: 12px/1.4 ui-monospace, monospace;
+  padding: 6px 10px; border-radius: 6px; opacity: .92; pointer-events: none;
+}
