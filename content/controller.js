@@ -35,7 +35,6 @@
         clearTimeout(fallbackTimer);
         running = false;
         badge('stopped', false);
-        applyTabTitle('idle');
         NS.cursor?.hide();
         await chrome.runtime.sendMessage({ type: 'CONTROL', action: 'STOP' }).catch(() => {});
       });
@@ -59,7 +58,6 @@
 
   async function stop(reason, lastAction) {
     NS.log?.(reason);
-    applyTabTitle('done');
     await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { status: 'done', lastAction } }).catch(() => {});
   }
 
@@ -277,15 +275,6 @@
     }
   }
 
-  // Reflect loop state in the browser tab title (▶ running, ✓ done), bound tab only.
-  const TITLE_PREFIX = { running: '▶ ', done: '✓ ' };
-  function applyTabTitle(state) {
-    if (!isTop) return;
-    const base = (document.title || '').replace(/^[▶✓]\s+/, '');
-    const next = (TITLE_PREFIX[state] || '') + base;
-    if (document.title !== next) document.title = next;
-  }
-
   // Was THIS page load a manual reload (F5), as opposed to SPA navigation by the loop?
   function wasReloaded() {
     try {
@@ -301,10 +290,6 @@
     // Show / act only on the bound tab AND only on an actual lesson page.
     const onTask = (rs?.status === 'running' || rs?.status === 'paused') && rs?.isTargetTab && onLessonPage();
     badge(rs?.status || 'idle', onTask);
-    // Tab-title indicator (bound tab only): ▶ while running, ✓ when the course is done.
-    applyTabTitle(rs?.isTargetTab
-      ? (rs.status === 'running' || rs.status === 'paused' ? 'running' : (rs.status === 'done' ? 'done' : 'idle'))
-      : 'idle');
     if (!onTask) NS.cursor?.hide();
     if (rs?.status === 'running' && rs?.isTargetTab && onLessonPage()) runOnce();
   }
