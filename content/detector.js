@@ -49,5 +49,13 @@
     return { type: 'doc' };
   }
 
-  NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo, contentIframe };
+  // Is the CURRENT lesson already completed? (read from the course outline in the top frame)
+  function lessonComplete() {
+    const active = document.querySelector('li.bg-info-100') || document.querySelector('[aria-current="page"]');
+    if (!active) return false;
+    if (/đã hoàn thành|đã hoàn tất|completed\b/i.test(active.textContent || '')) return true;
+    return !!active.querySelector('[data-testid="check-circle-icon"], .text-success');
+  }
+
+  NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo, contentIframe, lessonComplete };
 })();
