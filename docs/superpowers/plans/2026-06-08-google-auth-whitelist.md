@@ -367,10 +367,10 @@ async function control(action, tabId) {
   if (action === 'STOP') return { ok: true, runState: await setRunState({ status: 'idle', tabId: null }) };
   if (action === 'START' || action === 'STEP') {
     // Re-check access silently; block the loop if the account isn't whitelisted.
-    let allowed = false;
-    try { allowed = (await checkAccess(false)).allowed; } catch { allowed = false; }
-    if (!allowed) {
-      await chrome.storage.local.set({ auth: { allowed: false, email: null, checkedAt: Date.now() } });
+    let access = { allowed: false, email: null };
+    try { access = await checkAccess(false); } catch { /* fail closed */ }
+    if (!access.allowed) {
+      await chrome.storage.local.set({ auth: { email: access.email, allowed: false, checkedAt: Date.now(), error: null } });
       return { ok: false, error: 'NOT_AUTHORIZED' };
     }
     const runState = await setRunState({ status: 'running', error: null, tabId: tabId ?? null });
