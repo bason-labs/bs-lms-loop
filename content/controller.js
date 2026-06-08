@@ -10,7 +10,7 @@
   }
 
   async function clickNext(config) {
-    await NS.dom.waitFor(() => true, { timeout: config.delays.betweenLessonsMs });
+    await NS.dom.sleep(config.delays.betweenLessonsMs);
     const next = NS.dom.findClickableByText(NS.selectors.nextButtonText) || NS.dom.findFirst(NS.selectors.nextSelectors);
     return next ? NS.dom.simulateClick(next) : false;
   }
@@ -37,13 +37,14 @@
       if (config.mode === 'step') await chrome.runtime.sendMessage({ type: 'CONTROL', action: 'STOP' });
     } catch (e) {
       badge(`error: ${e?.message || e}`);
-      await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { error: String(e?.message || e) } });
+      await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { error: String(e?.message || e) } }).catch(() => {});
     } finally {
       running = false;
     }
   }
 
   async function maybeRun() {
+    if (running) return; // a handler is active; skip the GET_RUNSTATE poll until it finishes
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
     badge(rs?.status || 'idle');
     if (rs?.status === 'running') runOnce();
