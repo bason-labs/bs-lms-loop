@@ -21,7 +21,7 @@ const I18N = {
     sec_behavior: 'Behavior', lbl_video: 'Video speed', lbl_fallback: 'No-key quiz fallback',
     fb_random: 'Random fill', fb_skip: 'Skip',
     foot: 'Runs on the active tab · state survives reloads', ttl_theme: 'Toggle theme',
-    soon: 'Coming soon',
+    soon: 'Coming soon', btn_start: 'Start automating', btn_stop: 'Stop',
     test_checking: 'checking…', test_ok: 'key works ✓',
     status: { idle: 'idle', running: 'running', paused: 'paused', done: 'done', error: 'error' },
     type: { video: 'video', doc: 'document', quiz: 'quiz' },
@@ -43,7 +43,7 @@ const I18N = {
     sec_behavior: 'Hành vi', lbl_video: 'Tốc độ video', lbl_fallback: 'Khi không có khóa',
     fb_random: 'Điền ngẫu nhiên', fb_skip: 'Bỏ qua',
     foot: 'Chạy trên tab hiện tại · giữ trạng thái khi tải lại', ttl_theme: 'Đổi giao diện',
-    soon: 'Sắp ra mắt',
+    soon: 'Sắp ra mắt', btn_start: 'Bắt đầu tự động', btn_stop: 'Dừng',
     test_checking: 'đang kiểm tra…', test_ok: 'khóa hợp lệ ✓',
     status: { idle: 'chờ', running: 'đang chạy', paused: 'tạm dừng', done: 'xong', error: 'lỗi' },
     type: { video: 'video', doc: 'tài liệu', quiz: 'trắc nghiệm' },
@@ -154,13 +154,14 @@ function applyStatus(rs) {
   $('power').classList.toggle('is-running', running);
 
   const view = d.hero[status] || d.hero.idle;
-  let [title, sub, plabel] = view;
+  let [title, sub] = view;
   if (status === 'running') sub = d.runningSub(type ? (d.type[type] || type) : '');
   if (status === 'error') sub = rs?.error || sub || '';
 
   $('hero-status').textContent = title;
   $('hero-sub').textContent = sub;
-  $('power-label').textContent = plabel;
+  // Binary button: Stop while running, otherwise Start.
+  $('power-label').textContent = running ? t('btn_stop') : t('btn_start');
 }
 
 async function refresh() {
