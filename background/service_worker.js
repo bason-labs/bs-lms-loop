@@ -20,7 +20,7 @@ async function handle(msg, sender) {
     case 'CONTROL': return await control(msg.action, msg.tabId);
     case 'REQUEST_ADVANCE': {
       // A child frame finished its content and wants the top frame to click Next.
-      if (sender?.tab) chrome.tabs.sendMessage(sender.tab.id, { type: 'ADVANCE', lessonType: msg.lessonType }, { frameId: 0 }).catch(() => {});
+      if (sender?.tab) chrome.tabs.sendMessage(sender.tab.id, { type: 'ADVANCE', lessonType: msg.lessonType, token: msg.token }, { frameId: 0 }).catch(() => {});
       return { ok: true };
     }
     case 'BROADCAST_RETRY': {

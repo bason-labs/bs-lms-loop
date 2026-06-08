@@ -12,6 +12,8 @@
   let waitingAdvance = false;   // top frame: deferred, awaiting the child's ADVANCE
   let pendingAdvance = false;   // top frame: ADVANCE arrived before we deferred
   let pendingType = null;
+  let pendingToken = null;
+  let currentToken = null;      // token of the lesson the top frame is currently on
   let fallbackTimer = 0;
   let lastLessonId = null;
   let stuckCount = 0;
@@ -102,8 +104,10 @@
 
   // Top frame: a child frame says it finished. If it was a video that still isn't marked
   // complete, ask the child to re-watch (a few times) before giving up and advancing.
-  async function onAdvanceSignal(lessonType) {
-    if (!waitingAdvance) { pendingAdvance = true; pendingType = lessonType; return; }
+  async function onAdvanceSignal(lessonType, token) {
+    // Ignore a signal from a different (e.g. previous) lesson.
+    if (token && currentToken && token !== currentToken) { NS.log?.('ignoring stale advance signal from another lesson'); return; }
+    if (!waitingAdvance) { pendingAdvance = true; pendingType = lessonType; pendingToken = token; return; }
     if (processingAdvance) return;
     processingAdvance = true;
     try {
@@ -167,6 +171,9 @@
     try {
       const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
 
+      // New lesson on the top frame → drop any advance signal left over from the previous one.
+      if (isTop) { pendingAdvance = false; pendingType = null; pendingToken = null; }
+
       // Top frame: publish a completion verdict for this lesson so the content iframe
       // can read it (and skip playing an already-passed video).
       if (isTop) {
@@ -187,8 +194,9 @@
         await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { lastAction: 'await-frame' } }).catch(() => {});
         waitingAdvance = true;
         videoRetries = 0;
+        currentToken = lessonToken();
         armFallback();
-        if (pendingAdvance) { pendingAdvance = false; onAdvanceSignal(pendingType); } // child already finished
+        if (pendingAdvance) { pendingAdvance = false; onAdvanceSignal(pendingType, pendingToken); } // child already finished
         return; // keep `running` locked until doNavigate() releases it
       }
 
@@ -230,7 +238,7 @@
       if (handled && !aborted) {
         await chrome.runtime.sendMessage({ type: 'UPDATE_RUNSTATE', patch: { currentType: type } }).catch(() => {});
         NS.log?.('[frame] content handled — requesting advance');
-        await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: type }).catch(() => {});
+        await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: type, token: lessonToken() }).catch(() => {});
       }
     } catch (e) {
       badge(`error: ${e?.message || e}`);
@@ -256,9 +264,15 @@
     running = true;
     try {
       const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
-      NS.video.reachableVideos().forEach((v) => { try { v.currentTime = 0; } catch { /* ignore */ } });
+      const vids = NS.video.reachableVideos();
+      if (!vids.length) { // nothing to re-watch here — just let the top advance
+        NS.log?.('[frame] retry requested but no video in this frame — advancing');
+        await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: 'doc', token: lessonToken() }).catch(() => {});
+        return;
+      }
+      vids.forEach((v) => { try { v.currentTime = 0; } catch { /* ignore */ } });
       await NS.video.handleVideo(config);
-      if (!aborted) await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: 'video' }).catch(() => {});
+      if (!aborted) await chrome.runtime.sendMessage({ type: 'REQUEST_ADVANCE', lessonType: 'video', token: lessonToken() }).catch(() => {});
     } finally {
       running = false;
     }
@@ -266,7 +280,7 @@
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg?.type === 'RESUME') maybeRun();
-    else if (msg?.type === 'ADVANCE' && isTop) onAdvanceSignal(msg.lessonType);
+    else if (msg?.type === 'ADVANCE' && isTop) onAdvanceSignal(msg.lessonType, msg.token);
     else if (msg?.type === 'RETRY' && !isTop) replayVideo();
   });
 
