@@ -108,7 +108,7 @@
     badge('scanning outline');
     await NS.dom.waitFor(
       () => document.querySelector(NS.selectors.courseOutlineSelector),
-      { timeout: 5000, interval: 300 }
+      { timeout: 8000, interval: 400 }
     );
     if (aborted) return;
     const href = NS.detector.findFirstIncompleteLessonHref();

@@ -78,12 +78,12 @@
   }
 
   // True when we're on the course modules listing (not inside a lesson).
-  // URL has a course path but no lesson-specific segments (courseware / vertical+block / xblock).
+  // URL-only — the React MFE loads the outline async, so no DOM check here.
   function isCourseOverviewPage() {
     const url = location.href;
-    if (!/\/courses\/|\/learning\/course\//i.test(url)) return false;
-    if (/\/courseware\/|vertical\+block@|\/xblock\//i.test(url)) return false;
-    return !!document.querySelector(NS.selectors.courseOutlineSelector);
+    if (/\/learning\/course\/[^/]+\/home\/?$/i.test(url)) return true;  // new Learning MFE
+    if (/\/courses\/[^/]+\/course\/?$/i.test(url)) return true;          // legacy Open edX
+    return false;
   }
 
   // Scan the course outline for the first lesson link that lacks a completion marker.
