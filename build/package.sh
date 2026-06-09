@@ -29,11 +29,30 @@ if grep -q "PASTE_THE_" manifest.json; then
 fi
 
 rm -f "$OUT"
-# -r recurse, -X strip extra file attrs, exclude OS cruft.
-zip -rX "$OUT" "${INCLUDE[@]}" \
-  -x "*/.DS_Store" "*/.gitkeep" >/dev/null
+OUT_ABS="$ROOT/$OUT"
 
-echo "✓ Built $OUT"
+# Stage into a temp dir so we can ship a manifest WITHOUT the local-dev "key"
+# field — the Chrome Web Store rejects "key" (it assigns the ID itself).
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+for item in "${INCLUDE[@]}"; do
+  cp -R "$item" "$STAGE/"
+done
+# Drop the "key" field from the staged manifest (source manifest keeps it for
+# local unpacked development, which needs a stable ID for OAuth).
+node -e "
+const fs=require('fs');
+const p='$STAGE/manifest.json';
+const m=JSON.parse(fs.readFileSync(p,'utf8'));
+delete m.key;
+fs.writeFileSync(p, JSON.stringify(m,null,2)+'\n');
+"
+
+# -r recurse, -X strip extra file attrs, exclude OS cruft.
+( cd "$STAGE" && zip -rX "$OUT_ABS" "${INCLUDE[@]}" \
+    -x "*/.DS_Store" "*/.gitkeep" >/dev/null )
+
+echo "✓ Built $OUT  (key field stripped for store upload)"
 echo "  Contents:"
 unzip -Z1 "$OUT" | sed 's/^/    /'
 echo
