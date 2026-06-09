@@ -4,7 +4,7 @@ Guidance for working in this repo.
 
 ## What this is
 
-**LMS Loop** — a Manifest V3 Chrome extension that auto-progresses an LMS (built/tested against **HUTECH eLearning**, which is **Open edX**). It detects each lesson's type, handles it, and clicks Next:
+**LMS Loop** — a Manifest V3 Chrome extension that auto-progresses an LMS (built/tested against **Open edX**). It detects each lesson's type, handles it, and clicks Next:
 - **Video** → play through at speed to a real `ended` so the LMS records completion.
 - **Document** → extract readable text into a local knowledge base.
 - **Quiz** → AI solve (when configured) or **skip** when no API key.

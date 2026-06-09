@@ -5,8 +5,6 @@ the Web Store dashboard and Google Cloud — they can't be done from code.
 
 ## What's already set up in the repo ✅
 
-- **Scoped permissions** — `manifest.json` is narrowed to `https://*.hutech.edu.vn/*`
-  (content scripts + host access), instead of `<all_urls>`. Smoother review.
 - **Packaging script** — `build/package.sh` produces a clean upload zip with only the
   runtime files, and refuses to build while `PASTE_THE_*` placeholders remain.
 - **Privacy policy** — `PRIVACY.md` (host it and link it in the listing).
@@ -58,11 +56,14 @@ Use `docs/STORE_LISTING.md`:
 An extension that auto-completes coursework can be flagged under the Web Store's
 "deceptive/illegitimate use" and "respect other services" policies. To reduce rejection risk:
 - Frame the listing around **review, accessibility, and personal productivity** (done in the copy).
-- Keep permissions narrow (done).
+- **Narrow the host permissions** to the specific LMS domain you target (see below) — broad
+  `<all_urls>` access draws heavy review scrutiny.
 - If rejected, consider **Unlisted** or **Private (trusted testers / Workspace domain)** instead.
 
-## If the lesson iframe is served from another origin
-The content scripts run in all frames but only match `*.hutech.edu.vn`. If HUTECH serves
-the Open edX lesson body from a different host (a CDN/subdomain outside `hutech.edu.vn`),
-add that origin to BOTH `content_scripts.matches` and `host_permissions` in `manifest.json`,
-then rebuild. Verify by loading unpacked and watching the loop run end-to-end first.
+## Scoping to a specific LMS domain (recommended before submitting)
+The manifest ships with broad `<all_urls>` access so it works on any Open edX site. For a
+smoother review, scope it to your LMS. In `manifest.json`, replace `<all_urls>` in BOTH
+`content_scripts[0].matches` and `host_permissions` with your domain pattern, e.g.
+`"https://*.your-lms.edu/*"`. If the LMS serves the lesson body from a different origin
+(a CDN/subdomain), add that origin too. Verify by loading unpacked and watching the loop
+run end-to-end first, then rebuild.

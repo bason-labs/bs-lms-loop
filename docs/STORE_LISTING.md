@@ -8,7 +8,7 @@ Paste these into the Developer Dashboard fields. Edit to taste before submitting
 LMS Loop
 
 ## Summary (≤ 132 chars)
-Auto-progress your Open edX (HUTECH eLearning) lessons: play videos to completion, archive docs, and advance — hands-free.
+Auto-progress your Open edX lessons: play videos to completion, archive docs, and advance — hands-free.
 
 ## Category
 Productivity
@@ -34,7 +34,7 @@ verifies each unit is marked complete before moving on.
 Your data stays yours: settings, any API key, and the extracted knowledge base are kept
 locally on your device. No analytics, no tracking, no backend collecting your activity.
 
-Built and tested for HUTECH eLearning. Open source, zero dependencies.
+Built for Open edX–based platforms. Open source, zero dependencies.
 
 Privacy policy: <YOUR_HOSTED_PRIVACY_URL>
 Source: https://github.com/bason-labs/bs-lms-loop
@@ -47,7 +47,7 @@ Copy each justification next to its permission in the dashboard.
 
 | Item | Justification to paste |
 |------|------------------------|
-| Host access to `*.hutech.edu.vn` | Content scripts must read each lesson and click Next on the HUTECH eLearning (Open edX) site, including its cross-origin lesson iframe, to advance the course. |
+| Host access (`<all_urls>`) | Content scripts must read each lesson and click Next on the Open edX site, including its cross-origin lesson iframe, to advance the course. (To narrow review scope, scope this to your LMS domain instead — see docs/DEPLOY.md.) |
 | `api.openai.com`, `api.anthropic.com`, `generativelanguage.googleapis.com` | The background service worker sends quiz content to the LLM provider the user configured with their own API key. Page CSP blocks these calls from content scripts, so they run in the background. |
 | `accounts.google.com`, `www.googleapis.com`, `firestore.googleapis.com` | Google Sign-In access gate: verify the user's email and check its SHA-256 hash against a public allow-list in Firestore. Raw email is never stored remotely. |
 | `storage` | Save user settings, the (local-only) API key, and the extracted document knowledge base on the user's device. |
@@ -61,7 +61,7 @@ not transferred. No data sold to third parties.
 ---
 
 ## Single purpose (required field)
-Automate progression through an Open edX (HUTECH eLearning) course by handling each
+Automate progression through an Open edX course by handling each
 lesson type and advancing to the next.
 
 ## Screenshots to capture (1280×800)

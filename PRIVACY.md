@@ -40,7 +40,7 @@ The extension sends data directly from your browser to services **you** enable:
 
 ## Permissions, and why they're needed
 
-- **Access to `*.hutech.edu.vn`** — to read each lesson and click Next so the loop can run.
+- **Host access (the LMS site)** — to read each lesson and click Next so the loop can run.
 - **`storage`** — to save your settings, key, and local knowledge base.
 - **`identity`** — for Google Sign-In on the access gate.
 - **`tabs` / `activeTab` / `scripting`** — to run the loop in the tab where you started it.
@@ -53,4 +53,5 @@ The extension sends data directly from your browser to services **you** enable:
 
 ## Contact
 
-Questions about this policy: **you@example.com**
+Questions about this policy: open an issue at
+https://github.com/bason-labs/bs-lms-loop/issues

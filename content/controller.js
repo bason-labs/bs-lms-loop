@@ -2,7 +2,7 @@
 // Runs in every frame (manifest all_frames).
 //   • A CHILD frame handles the media/quiz/doc it can see, then asks the top frame to advance.
 //   • The TOP frame handles content it can see directly (simple LMS); for content that lives in
-//     a child iframe (e.g. Open edX/HUTECH) it DEFERS, then clicks Next when the child signals
+//     a child iframe (e.g. Open edX) it DEFERS, then clicks Next when the child signals
 //     it's done (or after a safety timeout). Only the top frame navigates / stops / shows badge.
 (function () {
   const NS = (globalThis.__LMS = globalThis.__LMS || {});
