@@ -19,24 +19,31 @@ The following are stored using Chrome's local extension storage on your own devi
 
 This data never leaves your device except as described below.
 
-## Data sent to third parties
+## Data sent off your device (what we disclose)
 
-The extension sends data directly from your browser to services **you** enable:
+The extension transmits data directly from your browser to services **you** enable.
+There is no LMS Loop server in between. Two categories of data may leave your device:
 
-- **LLM providers (OpenAI, Anthropic, or Google Gemini)** — only when you configure an
-  API key and a quiz is encountered. Quiz content is sent to the provider you chose so
-  it can be solved. No LLM calls are made without your API key. See that provider's own
-  privacy policy for how they handle the request.
-- **Google Sign-In (Google Identity / Firebase)** — used for the access gate. The
-  extension reads your account's verified email, hashes it (SHA-256), and checks the
-  hash against a public allow-list in Firebase. **Your raw email is never stored in
-  Firebase**; only the hash is compared. Your email is not shared with any other party.
+- **Website content (page text) → your chosen LLM provider.** When — and only when — you
+  have configured an API key and a quiz is encountered, the text of that quiz (content
+  read from the lesson page) is sent to the LLM provider you selected (OpenAI, Anthropic,
+  or Google Gemini) so it can be solved. No page content is sent if you do not enter an
+  API key. We do not receive or store this content; it goes straight to the provider
+  under your own account. See that provider's own privacy policy for how they handle it.
+- **Personally identifiable information (your email) → the access gate.** For Google
+  Sign-In, the extension reads your account's verified email, hashes it (SHA-256), and
+  checks the hash against a public allow-list in Firebase. **Your raw email is never
+  stored in Firebase** — only the hash is compared, and it is not shared with anyone else.
 
-## What we do NOT collect
+Document text extracted from non-quiz lessons stays in the local knowledge base on your
+device and is **not** transmitted anywhere.
+
+## What we do NOT do
 
 - We run no analytics, no tracking, and no advertising.
-- We operate no backend that receives your browsing data, page content, or keys.
-- We do not sell or transfer your data to anyone.
+- We operate **no server of our own** that receives your data — the only outbound data is
+  the two user-enabled flows above, sent directly to the provider/service you chose.
+- We do not sell or transfer your data to third parties for any unrelated purpose.
 
 ## Permissions, and why they're needed
 
