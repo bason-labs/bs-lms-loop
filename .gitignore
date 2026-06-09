@@ -1,3 +1,6 @@
 node_modules/
 *.zip
 .DS_Store
+
+# extension signing private key — never commit
+extension-key.pem

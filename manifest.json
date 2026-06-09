@@ -2,8 +2,14 @@
   "manifest_version": 3,
   "name": "LMS Loop",
   "version": "0.1.0",
-  "key": "PASTE_THE_BASE64_KEY_FROM_PHASE_0_STEP_3",
-  "permissions": ["storage", "scripting", "activeTab", "tabs", "identity"],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmcmBwmr9IKPTKc+8ZMJ+7B94VrCv0mXH8GioEMiNA5snzZeYt6x5YGIK692HnyXvkz23P7dXtY/oWf1gg3n5ayYuPb6T1ulQ064u7zf1cb8tmEcTwjspMwaHt3kdLkl0BezsJkKjvNrlHTyxew0SRYXIbYiu2CweZRhXS+R85Uby8sPz8oQOgZtm96WgvPVERwhsr4isqSST5TmiJenRRVwICVXzAuV9P57aFXsWbfzn1H7x5b9Ql+ZlQSpgDtC5NZaqYNoDWAgYmCdR5vaPJmdY8JGhS/vliU8ZlwORgiUxdhutK3BiV9piAwgI0dhTiweJlUL/lYzdk5WlQus6mQIDAQAB",
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab",
+    "tabs",
+    "identity"
+  ],
   "host_permissions": [
     "<all_urls>",
     "https://api.openai.com/*",
@@ -14,14 +20,25 @@
     "https://accounts.google.com/*"
   ],
   "oauth2": {
-    "client_id": "PASTE_THE_OAUTH_CLIENT_ID_FROM_PHASE_0_STEP_3",
-    "scopes": ["openid", "email", "profile"]
+    "client_id": "518594584743-7ifm1ksb3pinqnm9l39i2cjeoo9uq2n8.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
   },
-  "background": { "service_worker": "background/service_worker.js", "type": "module" },
-  "action": { "default_popup": "popup/popup.html" },
+  "background": {
+    "service_worker": "background/service_worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "<all_urls>"
+      ],
       "js": [
         "config/selectors.js",
         "lib/dom_utils.js",
@@ -32,10 +49,16 @@
         "content/content_quiz.js",
         "content/controller.js"
       ],
-      "css": ["content/content.css"],
+      "css": [
+        "content/content.css"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     }
   ],
-  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }
