@@ -91,7 +91,7 @@
   function findFirstIncompleteLessonHref() {
     const links = [...document.querySelectorAll('a[href]')].filter((a) => {
       const h = a.getAttribute('href') || '';
-      return h.includes('/courseware/') || /\/learning\/course\/.+\/block-v1/.test(h);
+      return /\/courseware\/[^/]+\/[^/]/.test(h) || /\/learning\/course\/.+\/block-v1/.test(h);
     });
     for (const a of links) {
       const container = a.closest('li') || a.closest('[class*="unit"]') || a.closest('[class*="section"]') || a.parentElement;
