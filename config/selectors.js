@@ -12,6 +12,6 @@
     submitSelectors: ['button[type="submit"]', '.btn-submit', '[data-testid*="submit" i]'],
     contentSelectors: ['main', 'article', '#content', '.lesson-content', '.content', '[role="main"]'],
     questionSelectors: ['.question', '.quiz-question', '[data-testid*="question" i]', 'legend', 'fieldset > p'],
-    courseOutlineSelector: 'a[href*="/courseware/"], a[href*="block-v1:"]'
+    courseOutlineSelector: 'ol[sectionids], a[href*="/courseware/"]'
   };
 })();

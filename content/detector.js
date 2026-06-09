@@ -86,9 +86,24 @@
     return false;
   }
 
-  // Scan the course outline for the first lesson link that lacks a completion marker.
-  // Returns the href string, or null if every lesson is complete (or none found).
+  // Scan the course outline for the first section that lacks a completion marker.
+  // Returns an href string, or null if every section is complete (or none found).
   function findFirstIncompleteLessonHref() {
+    // New Learning MFE: sections are collapsed, lesson links are never in the DOM.
+    // The ol[sectionids] attribute lists chapter block IDs in the same order as the <li>s.
+    const outline = document.querySelector('ol[sectionids]');
+    if (outline) {
+      const ids = (outline.getAttribute('sectionids') || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const items = [...outline.querySelectorAll(':scope > li')];
+      for (let i = 0; i < items.length && i < ids.length; i++) {
+        if (!hasCompleteMarker(items[i])) {
+          const m = location.href.match(/\/learning\/course\/([^/]+)\//i);
+          if (m) return `/learning/course/${m[1]}/${ids[i]}/`;
+        }
+      }
+      return null;
+    }
+    // Fallback: legacy /courseware/ links or an already-expanded accordion.
     const links = [...document.querySelectorAll('a[href]')].filter((a) => {
       const h = a.getAttribute('href') || '';
       return /\/courseware\/[^/]+\/[^/]/.test(h) || /\/learning\/course\/.+\/block-v1/.test(h);
