@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-08
 **Status:** Approved for planning
-**Author:** you@example.com
+**Author:** bason-labs
 
 ## 1. Overview
 

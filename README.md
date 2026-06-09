@@ -21,7 +21,7 @@ It watches each lesson, figures out what kind of content it is, handles it, and 
 ---
 
 > [!NOTE]
-> Built and tested against **HUTECH eLearning**, which runs on **Open edX**. The DOM heuristics live in one tunable file (`config/selectors.js`), so adapting it to another edX-style LMS usually means editing selectors — not logic.
+> Designed for **Open edX**–based learning platforms. The DOM heuristics live in one tunable file (`config/selectors.js`), so adapting it to a specific edX-style LMS usually means editing selectors — not logic.
 
 ## ✨ Features
 
