@@ -7,9 +7,9 @@ import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, serverTimest
 
 // Public web config (safe to commit) — from Firebase console → Project settings → Web app.
 const FIREBASE_WEB_CONFIG = {
-  apiKey: 'your-web-api-key',
-  authDomain: 'your-firebase-project-id.firebaseapp.com',
-  projectId: 'your-firebase-project-id'
+  apiKey: 'AIzaSyAlRRBg4YglYRfpC31--nWDRN-Bd9Jpd-o',
+  authDomain: 'bs-llm-loop.firebaseapp.com',
+  projectId: 'bs-llm-loop'
 };
 
 const app = initializeApp(FIREBASE_WEB_CONFIG);

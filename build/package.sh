@@ -35,6 +35,6 @@ zip -rX "$OUT" "${INCLUDE[@]}" \
 
 echo "✓ Built $OUT"
 echo "  Contents:"
-unzip -l "$OUT" | tail -n +4 | head -n -2 | awk '{print "    " $4}'
+unzip -Z1 "$OUT" | sed 's/^/    /'
 echo
 echo "Next: upload $OUT at https://chrome.google.com/webstore/devconsole"
