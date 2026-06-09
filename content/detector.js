@@ -77,5 +77,28 @@
     return hasCompleteMarker(active);
   }
 
-  NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo, contentIframe, lessonComplete, isUnitComplete };
+  // True when we're on the course modules listing (not inside a lesson).
+  // URL has a course path but no lesson-specific segments (courseware / vertical+block / xblock).
+  function isCourseOverviewPage() {
+    const url = location.href;
+    if (!/\/courses\/|\/learning\/course\//i.test(url)) return false;
+    if (/\/courseware\/|vertical\+block@|\/xblock\//i.test(url)) return false;
+    return !!document.querySelector(NS.selectors.courseOutlineSelector);
+  }
+
+  // Scan the course outline for the first lesson link that lacks a completion marker.
+  // Returns the href string, or null if every lesson is complete (or none found).
+  function findFirstIncompleteLessonHref() {
+    const links = [...document.querySelectorAll('a[href]')].filter((a) => {
+      const h = a.getAttribute('href') || '';
+      return h.includes('/courseware/') || /\/learning\/course\/.+\/block-v1/.test(h);
+    });
+    for (const a of links) {
+      const container = a.closest('li') || a.closest('[class*="unit"]') || a.closest('[class*="section"]') || a.parentElement;
+      if (!hasCompleteMarker(container)) return a.getAttribute('href');
+    }
+    return null;
+  }
+
+  NS.detector = { classify, hasPlayableVideo, hasQuiz, reachableVideo, contentIframe, lessonComplete, isUnitComplete, isCourseOverviewPage, findFirstIncompleteLessonHref };
 })();
