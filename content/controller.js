@@ -110,6 +110,7 @@
       () => document.querySelector(NS.selectors.courseOutlineSelector),
       { timeout: 5000, interval: 300 }
     );
+    if (aborted) return;
     const href = NS.detector.findFirstIncompleteLessonHref();
     if (!href) {
       badge('done');
@@ -119,6 +120,7 @@
     NS.log?.(`[course] navigating to first incomplete lesson: ${href}`);
     badge('navigating');
     await NS.dom.sleep(config.delays.betweenLessonsMs);
+    if (aborted) return;
     const link = [...document.querySelectorAll('a[href]')].find((a) => a.getAttribute('href') === href);
     if (link) {
       await NS.dom.clickVisible(link, 'first incomplete lesson');
