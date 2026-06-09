@@ -102,6 +102,31 @@
     }
   }
 
+  // Top frame on the course overview page: wait for the outline to populate,
+  // then navigate to the first lesson that isn't already marked complete.
+  async function goToFirstIncompleteLesson(config) {
+    badge('scanning outline');
+    await NS.dom.waitFor(
+      () => document.querySelector(NS.selectors.courseOutlineSelector),
+      { timeout: 5000, interval: 300 }
+    );
+    const href = NS.detector.findFirstIncompleteLessonHref();
+    if (!href) {
+      badge('done');
+      await stop('course overview: all lessons complete', 'course-complete');
+      return;
+    }
+    NS.log?.(`[course] navigating to first incomplete lesson: ${href}`);
+    badge('navigating');
+    await NS.dom.sleep(config.delays.betweenLessonsMs);
+    const link = [...document.querySelectorAll('a[href]')].find((a) => a.getAttribute('href') === href);
+    if (link) {
+      await NS.dom.clickVisible(link, 'first incomplete lesson');
+    } else {
+      location.href = href;
+    }
+  }
+
   async function clickPrevious() {
     const prev = NS.dom.findFirst(NS.selectors.primaryPrevSelectors || [])
       || NS.dom.findClickableByText(NS.selectors.prevButtonText || []);
@@ -175,6 +200,13 @@
 
       // New lesson on the top frame → drop any advance signal left over from the previous one.
       if (isTop) { pendingAdvance = false; pendingType = null; pendingToken = null; }
+
+      // Course overview page → navigate to the first incomplete lesson and exit.
+      // Must come before the verify/eval block so we don't try to handle it as a lesson.
+      if (isTop && NS.detector.isCourseOverviewPage()) {
+        await goToFirstIncompleteLesson(config);
+        return;
+      }
 
       // Top frame: verify a video we just advanced past actually got marked done.
       // If not (and we've moved on from it), go BACK to that lesson and redo it.
