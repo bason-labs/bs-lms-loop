@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LMS Loop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmcmBwmr9IKPTKc+8ZMJ+7B94VrCv0mXH8GioEMiNA5snzZeYt6x5YGIK692HnyXvkz23P7dXtY/oWf1gg3n5ayYuPb6T1ulQ064u7zf1cb8tmEcTwjspMwaHt3kdLkl0BezsJkKjvNrlHTyxew0SRYXIbYiu2CweZRhXS+R85Uby8sPz8oQOgZtm96WgvPVERwhsr4isqSST5TmiJenRRVwICVXzAuV9P57aFXsWbfzn1H7x5b9Ql+ZlQSpgDtC5NZaqYNoDWAgYmCdR5vaPJmdY8JGhS/vliU8ZlwORgiUxdhutK3BiV9piAwgI0dhTiweJlUL/lYzdk5WlQus6mQIDAQAB",
   "permissions": [
     "storage",
