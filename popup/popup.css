@@ -65,6 +65,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
