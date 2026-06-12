@@ -444,6 +444,8 @@ body {
 .icon-btn.sm { width: 30px; height: 30px; border-radius: 8px; }
 .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
 .icon-btn.is-on { color: var(--accent); background: var(--accent-tint); border-color: var(--accent); }
+.icon-btn.danger { color: #e05252; }
+.icon-btn.danger:hover { color: #ff4444; border-color: #ff4444; background: rgba(255,68,68,.1); }
 
 /* theme toggle: show the icon for the mode you'll switch INTO */
 .i-sun, .i-moon { display: none; }

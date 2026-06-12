@@ -45,7 +45,7 @@ const I18N = {
     lbl_quiz_strategy: 'Quiz strategy',
     qs_llm_only: 'LLM Only', qs_llm_search: 'LLM + Search',
     qs_note: 'Search requires Gemini or OpenAI',
-    foot: 'Runs on the active tab · reload the page to stop', ttl_theme: 'Toggle theme',
+    foot: 'Runs on the active tab · reload the page to stop', ttl_theme: 'Toggle theme', ttl_signout: 'Sign out',
     soon: 'Coming soon', btn_start: 'Start', btn_stop: 'Stop',
     test_checking: 'checking…', test_ok: 'key works ✓',
     status: { idle: 'idle', running: 'running', paused: 'paused', done: 'done', error: 'error' },
@@ -70,7 +70,7 @@ const I18N = {
     lbl_quiz_strategy: 'Chiến lược trắc nghiệm',
     qs_llm_only: 'Chỉ AI', qs_llm_search: 'AI + Tìm kiếm',
     qs_note: 'Tìm kiếm yêu cầu Gemini hoặc OpenAI',
-    foot: 'Chạy trên tab hiện tại · tải lại trang để dừng', ttl_theme: 'Đổi giao diện',
+    foot: 'Chạy trên tab hiện tại · tải lại trang để dừng', ttl_theme: 'Đổi giao diện', ttl_signout: 'Đăng xuất',
     soon: 'Sắp ra mắt', btn_start: 'Bắt đầu', btn_stop: 'Dừng',
     test_checking: 'đang kiểm tra…', test_ok: 'khóa hợp lệ ✓',
     status: { idle: 'chờ', running: 'đang chạy', paused: 'tạm dừng', done: 'xong', error: 'lỗi' },
@@ -305,6 +305,10 @@ $('signin').addEventListener('click', async () => {
   if (auth?.allowed) startPolling(); // begin live status once authorized via the gate
 });
 $('signout').addEventListener('click', async () => {
+  await chrome.runtime.sendMessage({ type: 'SIGN_OUT' }).catch(() => {});
+  await refreshAuth(false);
+});
+$('app-signout').addEventListener('click', async () => {
   await chrome.runtime.sendMessage({ type: 'SIGN_OUT' }).catch(() => {});
   await refreshAuth(false);
 });
