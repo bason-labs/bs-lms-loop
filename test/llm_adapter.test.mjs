@@ -111,3 +111,50 @@ test('buildSolveMultiPrompt: text-input question has no Options section', () => 
   const msgs = buildSolveMultiPrompt({ questions: [{ question: 'Explain it:', options: [] }] });
   assert.doesNotMatch(msgs[1].content, /Options:/);
 });
+
+// --- Task 3: parseMultiAnswerJson ---
+test('parseMultiAnswerJson: returns array with qi, answerIndices, answerText, confidence', () => {
+  const raw = '{"answers":[{"qi":0,"answerIndices":[1],"answerText":[],"confidence":9,"reason":"sure"}]}';
+  const result = parseMultiAnswerJson(raw);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].qi, 0);
+  assert.deepEqual(result[0].answerIndices, [1]);
+  assert.equal(result[0].confidence, 9);
+  assert.equal(result[0].reason, 'sure');
+});
+
+test('parseMultiAnswerJson: confidence defaults to 10 when missing', () => {
+  const raw = '{"answers":[{"qi":0,"answerIndices":[0],"answerText":[]}]}';
+  const result = parseMultiAnswerJson(raw);
+  assert.equal(result[0].confidence, 10);
+});
+
+test('parseMultiAnswerJson: text-input answer has answerText, empty answerIndices', () => {
+  const raw = '{"answers":[{"qi":1,"answerIndices":[],"answerText":["Paris"],"confidence":8,"reason":"capital"}]}';
+  const result = parseMultiAnswerJson(raw);
+  assert.deepEqual(result[0].answerIndices, []);
+  assert.deepEqual(result[0].answerText, ['Paris']);
+});
+
+test('parseMultiAnswerJson: returns null when answers key missing', () => {
+  assert.equal(parseMultiAnswerJson('{"other":[]}'), null);
+});
+
+test('parseMultiAnswerJson: tolerates surrounding prose', () => {
+  const raw = 'Here you go: {"answers":[{"qi":0,"answerIndices":[2],"answerText":[],"confidence":7,"reason":"r"}]} done';
+  const result = parseMultiAnswerJson(raw);
+  assert.equal(result[0].qi, 0);
+  assert.deepEqual(result[0].answerIndices, [2]);
+});
+
+test('parseMultiAnswerJson: drops null/empty indices', () => {
+  const raw = '{"answers":[{"qi":0,"answerIndices":[null,"",3],"answerText":[],"confidence":10,"reason":""}]}';
+  const result = parseMultiAnswerJson(raw);
+  assert.deepEqual(result[0].answerIndices, [3]);
+});
+
+test('parseMultiAnswerJson: returns null on garbage input', () => {
+  assert.equal(parseMultiAnswerJson('no json here'), null);
+  assert.equal(parseMultiAnswerJson(null), null);
+  assert.equal(parseMultiAnswerJson(''), null);
+});
