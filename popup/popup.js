@@ -151,7 +151,7 @@ async function persist() {
   cfg.llm.model = $('model').value.trim();
   cfg.llm.baseUrl = $('baseUrl').value.trim();
   cfg.mode = getGroup('mode');
-  cfg.video.playbackRate = Number($('playbackRate').value) || 8;
+  cfg.video.playbackRate = Number($('playbackRate').value) || 1;
   cfg.quiz.fallback = getGroup('fallback');
   await setConfig(cfg);
 }

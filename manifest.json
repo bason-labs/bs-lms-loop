@@ -20,7 +20,7 @@
     "https://accounts.google.com/*"
   ],
   "oauth2": {
-    "client_id": "518594584743-7ifm1ksb3pinqnm9l39i2cjeoo9uq2n8.apps.googleusercontent.com",
+    "client_id": "518594584743-sa3i8kc7u7v7ko7lihjs8isaavv6iegh.apps.googleusercontent.com",
     "scopes": [
       "openid",
       "email",

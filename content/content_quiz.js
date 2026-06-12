@@ -35,7 +35,7 @@
   }
 
   async function handleQuiz(config) {
-    // No API key → don't attempt the quiz at all; just move on to the next lesson.
+    // No API key → skip the quiz and move to the next lesson.
     if (!config.llm.apiKey) { NS.log?.('quiz: no API key — skipping to next lesson'); return { ok: true, skipped: true }; }
 
     const scraped = scrape();
