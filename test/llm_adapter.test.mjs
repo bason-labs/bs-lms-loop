@@ -158,3 +158,46 @@ test('parseMultiAnswerJson: returns null on garbage input', () => {
   assert.equal(parseMultiAnswerJson(null), null);
   assert.equal(parseMultiAnswerJson(''), null);
 });
+
+// --- Task 4: buildSearchRequest + parseSearchResponse ---
+test('buildSearchRequest gemini: same endpoint + googleSearch tool added', () => {
+  const msgs = buildSolveMultiPrompt({ questions: [{ question: 'q', options: ['a'] }] });
+  const r = buildSearchRequest('gemini', { apiKey: 'k', model: 'gemini-1.5-flash' }, msgs);
+  assert.match(r.url, /generativelanguage\.googleapis\.com/);
+  assert.ok(Array.isArray(r.body.tools));
+  assert.deepEqual(r.body.tools[0], { googleSearch: {} });
+});
+
+test('buildSearchRequest openai: /v1/responses endpoint + web_search_preview tool', () => {
+  const msgs = buildSolveMultiPrompt({ questions: [{ question: 'q', options: ['a'] }] });
+  const r = buildSearchRequest('openai', { apiKey: 'k', model: 'gpt-4o' }, msgs);
+  assert.match(r.url, /\/v1\/responses/);
+  assert.equal(r.headers.authorization, 'Bearer k');
+  assert.ok(Array.isArray(r.body.input));
+  assert.deepEqual(r.body.tools[0], { type: 'web_search_preview' });
+});
+
+test('buildSearchRequest unsupported provider throws', () => {
+  assert.throws(() => buildSearchRequest('anthropic', { apiKey: 'k' }, []));
+  assert.throws(() => buildSearchRequest('custom', { apiKey: 'k' }, []));
+});
+
+test('parseSearchResponse gemini: delegates to parseResponse', () => {
+  const json = { candidates: [{ content: { parts: [{ text: 'answer' }] } }] };
+  assert.equal(parseSearchResponse('gemini', json), 'answer');
+});
+
+test('parseSearchResponse openai: extracts text from output array', () => {
+  const json = {
+    output: [
+      { type: 'web_search_call', id: 'ws_1' },
+      { type: 'message', content: [{ type: 'output_text', text: '{"answers":[]}' }] }
+    ]
+  };
+  assert.equal(parseSearchResponse('openai', json), '{"answers":[]}');
+});
+
+test('parseSearchResponse openai: returns empty string on missing output', () => {
+  assert.equal(parseSearchResponse('openai', {}), '');
+  assert.equal(parseSearchResponse('openai', { output: [] }), '');
+});
