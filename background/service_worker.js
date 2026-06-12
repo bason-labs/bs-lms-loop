@@ -1,6 +1,7 @@
 // background/service_worker.js — message router + run-state owner (ES module worker).
 import { getConfig, getRunState, setRunState, saveLessonText, getKb } from '../lib/storage.js';
-import { callLlm } from '../lib/llm_adapter.js';
+import { buildSolveMultiPrompt, parseMultiAnswerJson, buildSearchRequest, parseSearchResponse, buildRequest, parseResponse } from '../lib/llm_adapter.js';
+import { QUIZ_CONFIDENCE_THRESHOLD } from '../config/app_config.js';
 import { checkAccess, signOut } from '../lib/auth.js';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -61,10 +62,28 @@ async function control(action, tabId) {
   throw new Error(`Bad control action: ${action}`);
 }
 
-// Phase 4: live solver — assemble RAG context from captured doc text, call the LLM, fall back on error.
+async function hashQuestions(questions) {
+  const text = questions.map((q) => q.question + q.options.join('|')).join('||');
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'qcache_' + [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Assemble RAG context, run Tier 1 (LLM-direct with confidence), optionally Tier 2
+// (provider-native search when confidence is low and the user opted in).
+// Results are cached in chrome.storage.session for the duration of the browser session.
 async function solveQuiz(payload) {
   const config = await getConfig();
   if (!config.llm.apiKey) return { error: 'NO_KEY' };
+
+  const questions = payload.questions;
+  if (!Array.isArray(questions) || !questions.length) return { error: 'NO_QUESTIONS' };
+
+  // Session cache: skip both tiers if this exact question set was solved this session.
+  const cacheKey = await hashQuestions(questions);
+  const sessionData = await chrome.storage.session.get(cacheKey).catch(() => ({}));
+  const cached = sessionData[cacheKey];
+  if (cached) return cached;
+
   const kb = await getKb();
   const context = kb.order
     .map((id) => kb.lessons[id])
@@ -72,8 +91,40 @@ async function solveQuiz(payload) {
     .map((l) => l.text)
     .join('\n\n')
     .slice(0, 12000);
+
+  const messages = buildSolveMultiPrompt({
+    questions,
+    context,
+    courseTitle: payload.courseTitle || ''
+  });
+
   try {
-    return { answer: await callLlm(config.llm, { ...payload, context }) };
+    // Tier 1: LLM-direct.
+    const req1 = buildRequest(config.llm.provider, config.llm, messages);
+    const raw1 = await fetch(req1.url, { method: 'POST', headers: req1.headers, body: JSON.stringify(req1.body) });
+    if (!raw1.ok) throw new Error(`LLM HTTP ${raw1.status}: ${(await raw1.text()).slice(0, 200)}`);
+    let answers = parseMultiAnswerJson(parseResponse(config.llm.provider, await raw1.json()));
+    if (!answers) throw new Error('LLM returned unparseable answer');
+
+    // Tier 2: search if any answer is low-confidence and the user opted in.
+    const minConfidence = Math.min(...answers.map((a) => a.confidence ?? 10));
+    const searchEnabled = config.quiz?.searchStrategy === 'llm-search'
+      && ['gemini', 'openai'].includes(config.llm.provider);
+
+    if (minConfidence < QUIZ_CONFIDENCE_THRESHOLD && searchEnabled) {
+      try {
+        const req2 = buildSearchRequest(config.llm.provider, config.llm, messages);
+        const raw2 = await fetch(req2.url, { method: 'POST', headers: req2.headers, body: JSON.stringify(req2.body) });
+        if (raw2.ok) {
+          const answers2 = parseMultiAnswerJson(parseSearchResponse(config.llm.provider, await raw2.json()));
+          if (answers2) answers = answers2;
+        }
+      } catch { /* Tier 2 failed — keep Tier 1 answers */ }
+    }
+
+    const result = { answers };
+    await chrome.storage.session.set({ [cacheKey]: result }).catch(() => {});
+    return result;
   } catch (e) {
     return { error: String(e?.message || e) };
   }
