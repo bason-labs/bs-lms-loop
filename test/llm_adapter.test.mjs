@@ -1,7 +1,7 @@
 // test/llm_adapter.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSolvePrompt, buildRequest, parseResponse, parseAnswerJson } from '../lib/llm_adapter.js';
+import { buildSolvePrompt, buildRequest, parseResponse, parseAnswerJson, buildSolveMultiPrompt, parseMultiAnswerJson, buildSearchRequest, parseSearchResponse } from '../lib/llm_adapter.js';
 
 test('buildSolvePrompt yields system+user with numbered options and context', () => {
   const m = buildSolvePrompt({ question: 'Q?', options: ['a', 'b'], context: 'ctx' });
@@ -66,4 +66,48 @@ test('parseAnswerJson returns null on garbage', () => {
 test('parseAnswerJson drops null/empty indices (no spurious index 0)', () => {
   const a = parseAnswerJson('{"answerIndices":[null,"",2],"answerText":[],"reason":""}');
   assert.deepEqual(a.answerIndices, [2]);
+});
+
+// --- Task 2: buildSolveMultiPrompt ---
+test('buildSolveMultiPrompt: system contains courseTitle when provided', () => {
+  const msgs = buildSolveMultiPrompt({
+    questions: [{ question: 'What is 2+2?', options: ['3', '4', '5'] }],
+    courseTitle: 'Python 101'
+  });
+  assert.equal(msgs[0].role, 'system');
+  assert.match(msgs[0].content, /Python 101/);
+});
+
+test('buildSolveMultiPrompt: system omits course line when courseTitle is empty', () => {
+  const msgs = buildSolveMultiPrompt({
+    questions: [{ question: 'Q?', options: ['a'] }],
+    courseTitle: ''
+  });
+  assert.doesNotMatch(msgs[0].content, /course titled/);
+});
+
+test('buildSolveMultiPrompt: system requests confidence field', () => {
+  const msgs = buildSolveMultiPrompt({ questions: [{ question: 'Q?', options: ['a'] }] });
+  assert.match(msgs[0].content, /confidence/);
+  assert.match(msgs[0].content, /10=certain/);
+});
+
+test('buildSolveMultiPrompt: user body has Q1/Q2 sections with numbered options', () => {
+  const msgs = buildSolveMultiPrompt({
+    questions: [
+      { question: 'What is 2+2?', options: ['3', '4'] },
+      { question: 'Capital of France?', options: ['Berlin', 'Paris'] }
+    ],
+    context: 'math stuff'
+  });
+  assert.match(msgs[1].content, /Q1: What is 2\+2\?/);
+  assert.match(msgs[1].content, /0\. 3/);
+  assert.match(msgs[1].content, /Q2: Capital of France\?/);
+  assert.match(msgs[1].content, /1\. Paris/);
+  assert.match(msgs[1].content, /math stuff/);
+});
+
+test('buildSolveMultiPrompt: text-input question has no Options section', () => {
+  const msgs = buildSolveMultiPrompt({ questions: [{ question: 'Explain it:', options: [] }] });
+  assert.doesNotMatch(msgs[1].content, /Options:/);
 });
