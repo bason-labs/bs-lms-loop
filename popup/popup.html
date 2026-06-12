@@ -122,6 +122,14 @@
           <button type="button" class="seg-btn" data-value="skip" data-i18n="fb_skip">Skip</button>
         </div>
       </div>
+      <div class="field">
+        <label class="field-label" data-i18n="lbl_quiz_strategy">Quiz strategy</label>
+        <div class="seg" data-group="quizStrategy" role="group" aria-label="Quiz answer strategy">
+          <button type="button" class="seg-btn" data-value="llm-only" data-i18n="qs_llm_only">LLM&nbsp;Only</button>
+          <button type="button" class="seg-btn" data-value="llm-search" data-i18n="qs_llm_search">LLM&nbsp;+&nbsp;Search</button>
+        </div>
+        <p id="quiz-strategy-note" class="field-note" hidden data-i18n="qs_note">Search requires Gemini or OpenAI</p>
+      </div>
     </div>
   </section>
 

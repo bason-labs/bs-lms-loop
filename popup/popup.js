@@ -42,6 +42,9 @@ const I18N = {
     btn_test: 'Test key', lbl_model: 'Model', lbl_baseurl: 'Base URL',
     sec_behavior: 'Behavior', lbl_video: 'Video speed', lbl_fallback: 'No-key quiz fallback',
     fb_random: 'Random fill', fb_skip: 'Skip',
+    lbl_quiz_strategy: 'Quiz strategy',
+    qs_llm_only: 'LLM Only', qs_llm_search: 'LLM + Search',
+    qs_note: 'Search requires Gemini or OpenAI',
     foot: 'Runs on the active tab · reload the page to stop', ttl_theme: 'Toggle theme',
     soon: 'Coming soon', btn_start: 'Start', btn_stop: 'Stop',
     test_checking: 'checking…', test_ok: 'key works ✓',
@@ -64,6 +67,9 @@ const I18N = {
     btn_test: 'Kiểm tra khóa', lbl_model: 'Mô hình', lbl_baseurl: 'Base URL',
     sec_behavior: 'Hành vi', lbl_video: 'Tốc độ video', lbl_fallback: 'Khi không có khóa',
     fb_random: 'Điền ngẫu nhiên', fb_skip: 'Bỏ qua',
+    lbl_quiz_strategy: 'Chiến lược trắc nghiệm',
+    qs_llm_only: 'Chỉ AI', qs_llm_search: 'AI + Tìm kiếm',
+    qs_note: 'Tìm kiếm yêu cầu Gemini hoặc OpenAI',
     foot: 'Chạy trên tab hiện tại · tải lại trang để dừng', ttl_theme: 'Đổi giao diện',
     soon: 'Sắp ra mắt', btn_start: 'Bắt đầu', btn_stop: 'Dừng',
     test_checking: 'đang kiểm tra…', test_ok: 'khóa hợp lệ ✓',
@@ -136,6 +142,7 @@ function fill(cfg) {
   setGroup('provider', cfg.llm.provider);
   setGroup('mode', cfg.mode);
   setGroup('fallback', cfg.quiz.fallback);
+  setGroup('quizStrategy', cfg.quiz.searchStrategy || 'llm-only');
   $('apiKey').value = cfg.llm.apiKey;
   $('model').value = cfg.llm.model;
   $('baseUrl').value = cfg.llm.baseUrl;
@@ -153,6 +160,7 @@ async function persist() {
   cfg.mode = getGroup('mode');
   cfg.video.playbackRate = Number($('playbackRate').value) || 1;
   cfg.quiz.fallback = getGroup('fallback');
+  cfg.quiz.searchStrategy = getGroup('quizStrategy') || 'llm-only';
   await setConfig(cfg);
 }
 
@@ -160,6 +168,17 @@ function syncProvider() {
   const p = getGroup('provider');
   $('baseUrl-field').hidden = p !== 'custom';
   $('model').placeholder = MODEL_HINT[p] || 'model';
+
+  const searchSupported = p === 'gemini' || p === 'openai';
+  const searchBtn = groupEl('quizStrategy').querySelector('[data-value="llm-search"]');
+  searchBtn.classList.toggle('is-disabled', !searchSupported);
+  searchBtn.disabled = !searchSupported;
+  $('quiz-strategy-note').hidden = searchSupported;
+
+  if (!searchSupported && getGroup('quizStrategy') === 'llm-search') {
+    setGroup('quizStrategy', 'llm-only');
+    persist();
+  }
 }
 
 /* ---------- status presentation ---------- */
@@ -214,7 +233,7 @@ groupEl('provider').addEventListener('click', (e) => {
   persist();
 });
 
-['mode', 'fallback'].forEach((name) => {
+['mode', 'fallback', 'quizStrategy'].forEach((name) => {
   groupEl(name).addEventListener('click', (e) => {
     const b = e.target.closest('[data-value]');
     if (!b) return;
