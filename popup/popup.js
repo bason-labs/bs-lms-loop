@@ -315,9 +315,6 @@ $('signout').addEventListener('click', async () => {
   applyTheme(prefs.theme);
   applyI18n(prefs.lang);
   fill(await getConfig());
-  // Lock the "coming soon" section: non-focusable, non-interactive.
-  const soon = document.querySelector('.card--soon');
-  if (soon) soon.inert = true;
   const auth = await refreshAuth(false);   // cached; no Google prompt on open
   if (!auth?.allowed) return;               // stay on the gate until signed in
   startPolling();
