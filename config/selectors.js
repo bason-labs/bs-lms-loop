@@ -2,7 +2,6 @@
 (function () {
   const NS = (globalThis.__LMS = globalThis.__LMS || {});
   NS.selectors = {
-    // Tried first — the explicit course-navigation link (marks the unit complete on click).
     primaryNextSelectors: ['.unit-navigation a.next-button[href]', 'a.next-button[href]'],
     primaryPrevSelectors: ['.unit-navigation a.previous-button[href]', 'a.previous-button[href]'],
     nextButtonText: ['next', 'continue', 'next lesson', 'proceed', 'tiếp', 'tiếp theo', 'tiếp tục', '次へ', '下一步', 'siguiente'],
@@ -12,6 +11,24 @@
     submitSelectors: ['button[type="submit"]', '.btn-submit', '[data-testid*="submit" i]'],
     contentSelectors: ['main', 'article', '#content', '.lesson-content', '.content', '[role="main"]'],
     questionSelectors: ['.question', '.quiz-question', '[data-testid*="question" i]', 'legend', 'fieldset > p'],
-    courseOutlineSelector: 'ol[sectionids], a[href*="/courseware/"]'
+    courseOutlineSelector: 'ol[sectionids], a[href*="/courseware/"]',
+
+    courseTitleSelector: '.course-title',
+
+    quizContainerSelectors: [
+      '.problems-wrapper', '.problem-wrapper', '.xblock-student_view',
+      '[data-block-type="problem"]', '.problem', 'form.problem-form'
+    ],
+
+    subQuestionSelectors: [
+      '.wrapper-problem-response', 'fieldset',
+      '[role="radiogroup"]', '[role="group"]',
+      '.choicegroup', '.textinputgroup', '.numericalresponse', '.formulaequationinput'
+    ],
+
+    subQuestionTextSelectors: [
+      'legend', '.question-description-text', '.question-text',
+      '.problem-header', 'label.response-label', 'p'
+    ]
   };
 })();
