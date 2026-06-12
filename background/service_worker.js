@@ -1,6 +1,6 @@
 // background/service_worker.js — message router + run-state owner (ES module worker).
 import { getConfig, getRunState, setRunState, saveLessonText, getKb } from '../lib/storage.js';
-import { buildSolveMultiPrompt, parseMultiAnswerJson, buildSearchRequest, parseSearchResponse, buildRequest, parseResponse } from '../lib/llm_adapter.js';
+import { callLlm, buildSolveMultiPrompt, parseMultiAnswerJson, buildSearchRequest, parseSearchResponse, buildRequest, parseResponse } from '../lib/llm_adapter.js';
 import { QUIZ_CONFIDENCE_THRESHOLD } from '../config/app_config.js';
 import { checkAccess, signOut } from '../lib/auth.js';
 
