@@ -193,6 +193,14 @@
     return null;
   }
 
+  // On a retry, automatically increase speed (tries=1→2x, tries=2→3x, …, capped at 5x)
+  // so the LMS has a better chance of registering the video as watched.
+  async function videoRetrySpeed(token) {
+    const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
+    const tries = rs?.verify?.token === token ? (rs.verify.tries || 0) : 0;
+    return tries > 0 ? Math.min(tries + 1, 5) : null;
+  }
+
   async function runOnce() {
     if (running) return;
     running = true;
@@ -274,7 +282,7 @@
           patch: { currentType: type, currentLessonId: lessonId, lastAction: `handle:${type}` }
         }).catch(() => {});
 
-        if (type === 'video') await NS.video.handleVideo(config);
+        if (type === 'video') await NS.video.handleVideo(config, await videoRetrySpeed(lessonToken()));
         else if (type === 'quiz' && NS.quiz) await NS.quiz.handleQuiz(config);
         else await NS.doc.handleDoc(lessonId, document.title);
 
@@ -292,7 +300,7 @@
 
       // CHILD frame: handle local content, then ask the top frame to advance.
       let handled = false;
-      if (type === 'video') { await NS.video.handleVideo(config); handled = true; }
+      if (type === 'video') { await NS.video.handleVideo(config, await videoRetrySpeed(lessonToken())); handled = true; }
       else if (type === 'quiz' && NS.quiz) { await NS.quiz.handleQuiz(config); handled = true; }
       else if (isContentDocFrame()) { await NS.doc.handleDoc(lessonId, document.title); handled = true; }
 
@@ -321,11 +329,12 @@
   async function maybeRun() {
     if (userStopped || running) return; // a handler is active, deferred, or the user reloaded
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
-    // Show / act only on the bound tab AND only on an actual lesson page.
-    const onTask = (rs?.status === 'running' || rs?.status === 'paused') && rs?.isTargetTab && onLessonPage();
-    badge(rs?.status || 'idle', onTask);
-    if (!onTask) NS.cursor?.hide();
-    if (rs?.status === 'running' && rs?.isTargetTab && onLessonPage()) runOnce();
+    if (!rs) return; // service worker restarting — keep existing badge/cursor state
+    // Show badge whenever the loop is active on this tab; only run on actual lesson pages.
+    const onTarget = (rs.status === 'running' || rs.status === 'paused') && rs.isTargetTab;
+    badge(rs.status || 'idle', onTarget);
+    if (!onTarget) NS.cursor?.hide();
+    if (rs.status === 'running' && rs.isTargetTab && onLessonPage()) runOnce();
   }
 
   chrome.runtime.onMessage.addListener((msg) => {

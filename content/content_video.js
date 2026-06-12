@@ -53,7 +53,7 @@
     return v.ended || (isFinite(v.duration) && v.duration > 0 && v.currentTime >= v.duration - 0.5);
   }
 
-  async function handleVideo(config) {
+  async function handleVideo(config, retrySpeed) {
     const vids = await findVideos();
     if (!vids.length) {
       NS.log?.('video lesson, but no controllable <video> (cross-origin player). Waiting for Next to enable…');
@@ -61,14 +61,17 @@
       return { ok: !!ok, controllable: false };
     }
 
-    const rate = config.video.playbackRate || 8;
+    const rate = (retrySpeed != null ? retrySpeed : config.video.playbackRate) || 1;
     const v = vids[0];
-    NS.log?.('video: watching through at speed', { count: vids.length, rate, duration: v.duration });
+    NS.log?.('video: watching through at speed', { count: vids.length, rate, retry: retrySpeed != null, duration: v.duration });
+
+    try { v.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); } catch { /* ignore */ }
+    await NS.dom.sleep(400);
 
     await ensurePlaying(v, rate);
-    if (config.video.skipToEnd && isFinite(v.duration) && v.duration > 6) {
-      // jump most of the way, but leave a tail to play out so progress + 'ended' register
-      try { v.currentTime = Math.max(v.currentTime, v.duration - 5); } catch { /* blocked */ }
+    if (config.video.skipToEnd && isFinite(v.duration) && v.duration > 0) {
+      // Skip to 70% so the last 30% plays out — enough progress events for the LMS to register.
+      try { v.currentTime = Math.max(v.currentTime, v.duration * 0.7); } catch { /* blocked */ }
     }
 
     // Keep it playing at the chosen rate — players often reset rate or pause on seek.
@@ -83,13 +86,16 @@
       });
     }, 1000);
 
-    const done = await NS.dom.waitFor(() => vids.every(ended), { timeout: 180000, interval: 500 });
+    // Timeout: time to play the remaining 30% at the configured rate, plus a 15s buffer.
+    const remaining = isFinite(v.duration) && v.duration > 0 ? v.duration * 0.3 : 600;
+    const timeoutMs = Math.max(30000, Math.ceil(remaining / rate * 1000) + 15000);
+    const done = await NS.dom.waitFor(() => vids.every(ended), { timeout: timeoutMs, interval: 500 });
     clearInterval(keepAlive);
 
     // Nudge a definite end state so the player fires its completion handler.
     vids.forEach((x) => { try { if (!x.ended && isFinite(x.duration) && x.duration > 0) x.currentTime = x.duration; } catch { /* ignore */ } });
 
-    NS.log?.(done ? 'video watched to the end' : 'video wait timed out (180s) — moving on');
+    NS.log?.(done ? 'video watched to the end' : `video wait timed out (${Math.round(timeoutMs / 1000)}s) — moving on`);
     return { ok: !!done, controllable: true };
   }
 

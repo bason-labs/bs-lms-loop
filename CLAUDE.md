@@ -23,6 +23,7 @@ Plus: a Google **sign-in gate** with a Firebase-backed admin **whitelist** (feat
 - **Syntax-check a file:** `node --check path/to/file.js`
 - **Load in Chrome:** `chrome://extensions` → Developer mode → Load unpacked → this folder.
 - **Reload after a change:** click ↻ on the extension card **and refresh the LMS tab** (content scripts only re-inject on page load).
+- **Build store zip:** `bash build/package.sh` — strips `key` and swaps `oauth2.client_id` to the production value defined at the top of that script. `manifest.json` always holds the local-dev client ID.
 
 ## Testing model (important)
 
