@@ -193,12 +193,12 @@
     return null;
   }
 
-  // On a retry, automatically increase speed (tries=1→2x, tries=2→3x, …, capped at 5x)
-  // so the LMS has a better chance of registering the video as watched.
-  async function videoRetrySpeed(token) {
+  // Always play at a hardcoded speed: 16x on first attempt, descending to 5x/2x/1x on retries.
+  async function videoPlaybackSpeed(token) {
+    const SPEED_TABLE = [16, 5, 2, 1];
     const rs = await chrome.runtime.sendMessage({ type: 'GET_RUNSTATE' }).catch(() => null);
     const tries = rs?.verify?.token === token ? (rs.verify.tries || 0) : 0;
-    return tries > 0 ? Math.min(tries + 1, 5) : null;
+    return SPEED_TABLE[Math.min(tries, SPEED_TABLE.length - 1)];
   }
 
   async function runOnce() {
@@ -282,7 +282,7 @@
           patch: { currentType: type, currentLessonId: lessonId, lastAction: `handle:${type}` }
         }).catch(() => {});
 
-        if (type === 'video') await NS.video.handleVideo(config, await videoRetrySpeed(lessonToken()));
+        if (type === 'video') await NS.video.handleVideo(config, await videoPlaybackSpeed(lessonToken()));
         else if (type === 'quiz' && NS.quiz) await NS.quiz.handleQuiz(config);
         else await NS.doc.handleDoc(lessonId, document.title);
 
@@ -300,7 +300,7 @@
 
       // CHILD frame: handle local content, then ask the top frame to advance.
       let handled = false;
-      if (type === 'video') { await NS.video.handleVideo(config, await videoRetrySpeed(lessonToken())); handled = true; }
+      if (type === 'video') { await NS.video.handleVideo(config, await videoPlaybackSpeed(lessonToken())); handled = true; }
       else if (type === 'quiz' && NS.quiz) { await NS.quiz.handleQuiz(config); handled = true; }
       else if (isContentDocFrame()) { await NS.doc.handleDoc(lessonId, document.title); handled = true; }
 
