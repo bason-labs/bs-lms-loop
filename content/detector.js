@@ -52,6 +52,16 @@
   function currentVerticalId() {
     const vert = location.href.match(/vertical\+block@([0-9a-f]+)/i);
     if (vert) return vert[1];
+    // On the sequential top frame, read the vertical ID from the unit-iframe so
+    // isUnitComplete() and lessonComplete() look up the right sidebar link.
+    if (window === window.top) {
+      const iframe = contentIframe();
+      if (iframe) {
+        const src = iframe.src || iframe.getAttribute('src') || '';
+        const iv = src.match(/vertical\+block@([0-9a-f]+)/i);
+        if (iv) return iv[1];
+      }
+    }
     const all = location.href.match(/block@([0-9a-f]+)/ig);
     return all ? all[all.length - 1].replace(/block@/i, '') : null;
   }

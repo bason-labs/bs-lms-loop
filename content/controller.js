@@ -171,14 +171,24 @@
     return !!(NS.detector.contentIframe() || document.querySelector('video') || NS.detector.hasQuiz());
   }
 
-  // Stable per-lesson token shared by the parent page and its content iframe
-  // (Open edX puts the same `vertical+block@<id>` in both URLs). Lets the top frame's
-  // completion verdict reach the child frame so it won't play already-passed videos.
+  // Stable per-lesson token shared by the parent page and its content iframe.
+  // Ideally both frames have the same `vertical+block@<id>` in their URLs (standard Open edX).
+  // When the top-frame URL is a sequential block (no `vertical+block@`), derive the token from
+  // the unit-iframe's src so both frames agree on the same ID and ADVANCE signals aren't dropped.
   function lessonToken() {
     const vert = location.href.match(/vertical\+block@([0-9a-f]+)/i);
     if (vert) return vert[1];
-    const all = location.href.match(/block@([0-9a-f]+)/ig);
-    return all ? all[all.length - 1] : null;
+    if (isTop) {
+      const iframe = NS.detector.contentIframe?.();
+      if (iframe) {
+        const src = iframe.src || iframe.getAttribute('src') || '';
+        const iv = src.match(/vertical\+block@([0-9a-f]+)/i);
+        if (iv) return iv[1];
+      }
+    }
+    // Last resort: last block@ ID in this frame's URL (extract capture group only).
+    const all = [...location.href.matchAll(/block@([0-9a-f]+)/gi)];
+    return all.length ? all[all.length - 1][1] : null;
   }
 
   // Child frame: wait for the top frame's completion verdict for this lesson.
