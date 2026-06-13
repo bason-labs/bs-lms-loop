@@ -40,11 +40,6 @@ const I18N = {
     sec_intel: 'Intelligence', note_quiz: 'used for quizzes', prov_custom: 'Custom',
     lbl_apikey: 'API key', ph_apikey: 'blank → skip / guess quizzes', ttl_reveal: 'Show / hide',
     btn_test: 'Test key', lbl_model: 'Model', lbl_baseurl: 'Base URL',
-    sec_behavior: 'Behavior', lbl_video: 'Video speed', lbl_fallback: 'No-key quiz fallback',
-    fb_random: 'Random fill', fb_skip: 'Skip',
-    lbl_quiz_strategy: 'Quiz strategy',
-    qs_llm_only: 'LLM Only', qs_llm_search: 'LLM + Search',
-    qs_note: 'Search requires Gemini or OpenAI',
     foot: 'Runs on the active tab · reload the page to stop', ttl_theme: 'Toggle theme', ttl_signout: 'Sign out',
     soon: 'Coming soon', btn_start: 'Start', btn_stop: 'Stop',
     test_checking: 'checking…', test_ok: 'key works ✓',
@@ -65,11 +60,6 @@ const I18N = {
     sec_intel: 'Trí tuệ AI', note_quiz: 'dùng cho trắc nghiệm', prov_custom: 'Tùy chỉnh',
     lbl_apikey: 'Khóa API', ph_apikey: 'trống → bỏ qua / đoán', ttl_reveal: 'Hiện / ẩn',
     btn_test: 'Kiểm tra khóa', lbl_model: 'Mô hình', lbl_baseurl: 'Base URL',
-    sec_behavior: 'Hành vi', lbl_video: 'Tốc độ video', lbl_fallback: 'Khi không có khóa',
-    fb_random: 'Điền ngẫu nhiên', fb_skip: 'Bỏ qua',
-    lbl_quiz_strategy: 'Chiến lược trắc nghiệm',
-    qs_llm_only: 'Chỉ AI', qs_llm_search: 'AI + Tìm kiếm',
-    qs_note: 'Tìm kiếm yêu cầu Gemini hoặc OpenAI',
     foot: 'Chạy trên tab hiện tại · tải lại trang để dừng', ttl_theme: 'Đổi giao diện', ttl_signout: 'Đăng xuất',
     soon: 'Sắp ra mắt', btn_start: 'Bắt đầu', btn_stop: 'Dừng',
     test_checking: 'đang kiểm tra…', test_ok: 'khóa hợp lệ ✓',
@@ -113,14 +103,6 @@ function setGroup(name, value) {
   });
 }
 
-/* ---------- range fill + label ---------- */
-function paintRate() {
-  const r = $('playbackRate');
-  const pct = ((r.value - r.min) / (r.max - r.min)) * 100;
-  r.style.setProperty('--fill', pct + '%');
-  $('rate-value').textContent = '×' + r.value;
-}
-
 /* ---------- theme + language ---------- */
 function applyTheme(th) {
   theme = th === 'light' ? 'light' : 'dark';
@@ -141,13 +123,9 @@ function applyI18n(lg) {
 function fill(cfg) {
   setGroup('provider', cfg.llm.provider);
   setGroup('mode', cfg.mode);
-  setGroup('fallback', cfg.quiz.fallback);
-  setGroup('quizStrategy', cfg.quiz.searchStrategy || 'llm-only');
   $('apiKey').value = cfg.llm.apiKey;
   $('model').value = cfg.llm.model;
   $('baseUrl').value = cfg.llm.baseUrl;
-  $('playbackRate').value = cfg.video.playbackRate;
-  paintRate();
   syncProvider();
 }
 
@@ -158,9 +136,6 @@ async function persist() {
   cfg.llm.model = $('model').value.trim();
   cfg.llm.baseUrl = $('baseUrl').value.trim();
   cfg.mode = getGroup('mode');
-  cfg.video.playbackRate = Number($('playbackRate').value) || 1;
-  cfg.quiz.fallback = getGroup('fallback');
-  cfg.quiz.searchStrategy = getGroup('quizStrategy') || 'llm-only';
   await setConfig(cfg);
 }
 
@@ -168,17 +143,6 @@ function syncProvider() {
   const p = getGroup('provider');
   $('baseUrl-field').hidden = p !== 'custom';
   $('model').placeholder = MODEL_HINT[p] || 'model';
-
-  const searchSupported = p === 'gemini' || p === 'openai';
-  const searchBtn = groupEl('quizStrategy').querySelector('[data-value="llm-search"]');
-  searchBtn.classList.toggle('is-disabled', !searchSupported);
-  searchBtn.disabled = !searchSupported;
-  $('quiz-strategy-note').hidden = searchSupported;
-
-  if (!searchSupported && getGroup('quizStrategy') === 'llm-search') {
-    setGroup('quizStrategy', 'llm-only');
-    persist();
-  }
 }
 
 /* ---------- status presentation ---------- */
@@ -233,7 +197,7 @@ groupEl('provider').addEventListener('click', (e) => {
   persist();
 });
 
-['mode', 'fallback', 'quizStrategy'].forEach((name) => {
+['mode'].forEach((name) => {
   groupEl(name).addEventListener('click', (e) => {
     const b = e.target.closest('[data-value]');
     if (!b) return;
@@ -260,9 +224,6 @@ $('power').addEventListener('click', () => control(status === 'running' || statu
 
 ['apiKey', 'model', 'baseUrl'].forEach((id) => $(id).addEventListener('change', persist));
 
-$('playbackRate').addEventListener('input', paintRate);
-$('playbackRate').addEventListener('change', persist);
-
 $('reveal').addEventListener('click', () => {
   const k = $('apiKey');
   const show = k.type === 'password';
@@ -282,13 +243,6 @@ $('test').addEventListener('click', async () => {
   btn.disabled = false;
   if (res?.ok) { out.className = 'test-result ok'; out.textContent = t('test_ok'); }
   else { out.className = 'test-result bad'; out.textContent = (res?.error || 'failed').slice(0, 40); }
-});
-
-$('adv-toggle').addEventListener('click', () => {
-  const body = $('adv-body');
-  const open = body.hidden;
-  body.hidden = !open;
-  $('adv-toggle').setAttribute('aria-expanded', String(open));
 });
 
 let polling = false;
