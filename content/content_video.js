@@ -53,7 +53,7 @@
     return v.ended || (isFinite(v.duration) && v.duration > 0 && v.currentTime >= v.duration - 0.5);
   }
 
-  async function handleVideo(config, retrySpeed) {
+  async function handleVideo(config, speed) {
     const vids = await findVideos();
     if (!vids.length) {
       NS.log?.('video lesson, but no controllable <video> (cross-origin player). Waiting for Next to enable…');
@@ -61,9 +61,9 @@
       return { ok: !!ok, controllable: false };
     }
 
-    const rate = (retrySpeed != null ? retrySpeed : config.video.playbackRate) || 1;
+    const rate = speed || 1;
     const v = vids[0];
-    NS.log?.('video: watching through at speed', { count: vids.length, rate, retry: retrySpeed != null, duration: v.duration });
+    NS.log?.('video: watching through at speed', { count: vids.length, rate, duration: v.duration });
 
     try { v.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); } catch { /* ignore */ }
     await NS.dom.sleep(400);
