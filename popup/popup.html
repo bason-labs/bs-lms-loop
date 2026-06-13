@@ -101,41 +101,6 @@
     </div>
   </section>
 
-  <section class="card reveal" style="--d:3">
-    <button id="adv-toggle" class="card-head as-button" type="button" aria-expanded="false" aria-controls="adv-body">
-      <h2 class="label" data-i18n="sec_behavior">Behavior</h2>
-      <span class="chev" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
-      </span>
-    </button>
-
-    <div id="adv-body" class="adv-body" hidden>
-      <div class="field">
-        <div class="field-label-row">
-          <label class="field-label" for="playbackRate" data-i18n="lbl_video">Video speed</label>
-          <span id="rate-value" class="rate-value">×1</span>
-        </div>
-        <input id="playbackRate" class="range" type="range" min="1" max="16" step="1" value="1">
-      </div>
-
-      <div class="field">
-        <label class="field-label" data-i18n="lbl_fallback">No-key quiz fallback</label>
-        <div class="seg" data-group="fallback" role="group" aria-label="Fallback when no key">
-          <button type="button" class="seg-btn" data-value="random" data-i18n="fb_random">Random&nbsp;fill</button>
-          <button type="button" class="seg-btn" data-value="skip" data-i18n="fb_skip">Skip</button>
-        </div>
-      </div>
-      <div class="field">
-        <label class="field-label" data-i18n="lbl_quiz_strategy">Quiz strategy</label>
-        <div class="seg" data-group="quizStrategy" role="group" aria-label="Quiz answer strategy">
-          <button type="button" class="seg-btn" data-value="llm-only" data-i18n="qs_llm_only">LLM&nbsp;Only</button>
-          <button type="button" class="seg-btn" data-value="llm-search" data-i18n="qs_llm_search">LLM&nbsp;+&nbsp;Search</button>
-        </div>
-        <p id="quiz-strategy-note" class="field-note" hidden data-i18n="qs_note">Search requires Gemini or OpenAI</p>
-      </div>
-    </div>
-  </section>
-
   <footer class="foot reveal" style="--d:4">
     <span id="foot-msg" data-i18n="foot">Runs on the active tab · state survives reloads</span>
   </footer>
