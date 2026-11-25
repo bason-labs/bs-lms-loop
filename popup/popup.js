@@ -3,28 +3,6 @@ import { getConfig, setConfig } from '../lib/storage.js';
 const $ = (id) => document.getElementById(id);
 const groupEl = (name) => document.querySelector(`[data-group="${name}"]`);
 
-function showGate(auth) {
-  const allowed = !!auth?.allowed;
-  $('gate').hidden = allowed;
-  $('app').hidden = !allowed;
-  if (allowed) return;
-  const denied = auth && auth.email && !auth.allowed;
-  $('gate').dataset.state = denied ? 'denied' : 'signedout';
-  $('gate-title').textContent = denied ? 'No access' : 'Sign in';
-  $('gate-sub').textContent = denied
-    ? `${auth.email} isn't on the allowed list. Ask an admin to add it.`
-    : 'Use your authorized Google account to continue.';
-  $('signin').querySelector('.power-label').textContent = denied ? 'Try another account' : 'Sign in with Google';
-  $('signout').hidden = !denied;
-}
-
-async function refreshAuth(interactive) {
-  const type = interactive ? 'CHECK_ACCESS' : 'GET_AUTH';
-  const auth = await chrome.runtime.sendMessage({ type, interactive }).catch(() => null);
-  showGate(auth);
-  return auth;
-}
-
 const MODEL_HINT = {
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-haiku-latest',
@@ -40,7 +18,7 @@ const I18N = {
     sec_intel: 'Intelligence', note_quiz: 'used for quizzes', prov_custom: 'Custom',
     lbl_apikey: 'API key', ph_apikey: 'blank → skip / guess quizzes', ttl_reveal: 'Show / hide',
     btn_test: 'Test key', lbl_model: 'Model', lbl_baseurl: 'Base URL',
-    foot: 'Runs on the active tab · reload the page to stop', ttl_theme: 'Toggle theme', ttl_signout: 'Sign out',
+    foot: 'Runs on the active tab · reload the page to stop', ttl_theme: 'Toggle theme',
     soon: 'Coming soon', btn_start: 'Start', btn_stop: 'Stop',
     test_checking: 'checking…', test_ok: 'key works ✓',
     status: { idle: 'idle', running: 'running', paused: 'paused', done: 'done', error: 'error' },
@@ -60,7 +38,7 @@ const I18N = {
     sec_intel: 'Trí tuệ AI', note_quiz: 'dùng cho trắc nghiệm', prov_custom: 'Tùy chỉnh',
     lbl_apikey: 'Khóa API', ph_apikey: 'trống → bỏ qua / đoán', ttl_reveal: 'Hiện / ẩn',
     btn_test: 'Kiểm tra khóa', lbl_model: 'Mô hình', lbl_baseurl: 'Base URL',
-    foot: 'Chạy trên tab hiện tại · tải lại trang để dừng', ttl_theme: 'Đổi giao diện', ttl_signout: 'Đăng xuất',
+    foot: 'Chạy trên tab hiện tại · tải lại trang để dừng', ttl_theme: 'Đổi giao diện',
     soon: 'Sắp ra mắt', btn_start: 'Bắt đầu', btn_stop: 'Dừng',
     test_checking: 'đang kiểm tra…', test_ok: 'khóa hợp lệ ✓',
     status: { idle: 'chờ', running: 'đang chạy', paused: 'tạm dừng', done: 'xong', error: 'lỗi' },
@@ -183,7 +161,6 @@ async function control(action) {
     tabId = tab?.id;
   }
   const res = await chrome.runtime.sendMessage({ type: 'CONTROL', action, tabId }).catch((e) => ({ error: String(e) }));
-  if (res?.error === 'NOT_AUTHORIZED') { await refreshAuth(false); return; }
   if (res?.runState) applyStatus(res.runState);
   else applyStatus({ status: 'error', error: res?.error || 'no response' });
 }
@@ -253,27 +230,11 @@ function startPolling() {
   setInterval(refresh, 1500); // live status while the popup is open
 }
 
-$('signin').addEventListener('click', async () => {
-  $('gate-sub').textContent = 'Checking…';
-  const auth = await refreshAuth(true);
-  if (auth?.allowed) startPolling(); // begin live status once authorized via the gate
-});
-$('signout').addEventListener('click', async () => {
-  await chrome.runtime.sendMessage({ type: 'SIGN_OUT' }).catch(() => {});
-  await refreshAuth(false);
-});
-$('app-signout').addEventListener('click', async () => {
-  await chrome.runtime.sendMessage({ type: 'SIGN_OUT' }).catch(() => {});
-  await refreshAuth(false);
-});
-
 /* ---------- boot ---------- */
 (async () => {
   const prefs = await getPrefs();
   applyTheme(prefs.theme);
   applyI18n(prefs.lang);
   fill(await getConfig());
-  const auth = await refreshAuth(false);   // cached; no Google prompt on open
-  if (!auth?.allowed) return;               // stay on the gate until signed in
   startPolling();
 })();

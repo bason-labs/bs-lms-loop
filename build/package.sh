@@ -7,10 +7,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Production OAuth2 client ID (Chrome Web Store extension).
-# manifest.json keeps the local-dev ID; this is swapped in during packaging.
-PROD_CLIENT_ID="518594584743-7ifm1ksb3pinqnm9l39i2cjeoo9uq2n8.apps.googleusercontent.com"
-
 VERSION="$(node -p "require('./manifest.json').version" 2>/dev/null || echo "0.0.0")"
 OUT="build/lms-loop-${VERSION}.zip"
 
@@ -27,7 +23,7 @@ INCLUDE=(
 
 # Guard: refuse to ship unfilled placeholders.
 if grep -q "PASTE_THE_" manifest.json; then
-  echo "✗ manifest.json still has PASTE_THE_* placeholders (key / oauth client_id). Fill them first." >&2
+  echo "✗ manifest.json still has PASTE_THE_* placeholders (key). Fill them first." >&2
   echo "  See docs/DEPLOY.md." >&2
   exit 1
 fi
@@ -42,14 +38,12 @@ trap 'rm -rf "$STAGE"' EXIT
 for item in "${INCLUDE[@]}"; do
   cp -R "$item" "$STAGE/"
 done
-# Strip "key" and swap in production client_id.
-# Source manifest keeps the local-dev values; the store build needs neither.
+# Strip "key" — the source manifest keeps it for a stable local-dev ID.
 node -e "
 const fs=require('fs');
 const p='$STAGE/manifest.json';
 const m=JSON.parse(fs.readFileSync(p,'utf8'));
 delete m.key;
-m.oauth2.client_id = '$PROD_CLIENT_ID';
 fs.writeFileSync(p, JSON.stringify(m,null,2)+'\n');
 "
 

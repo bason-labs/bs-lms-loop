@@ -14,17 +14,10 @@ the Web Store dashboard and Google Cloud — they can't be done from code.
 
 ### 0. Prerequisites
 - A Chrome Web Store **developer account** ($5 one-time): https://chrome.google.com/webstore/devconsole
-- Complete the Firebase/OAuth one-time setup if not done — see
-  `docs/superpowers/plans/2026-06-08-google-auth-whitelist.md` (Phase 0).
 
-### 1. Fill the manifest placeholders
-`manifest.json` still has two placeholders that block publishing:
-- `"key"` → the base64 public key (from the dashboard after first upload, or generated in Phase 0).
-- `"oauth2.client_id"` → your Chrome-Extension-type OAuth client ID.
-Also fill `config/app_config.js` (`FIREBASE_PROJECT_ID`, `OAUTH_CLIENT_ID`).
-
-> The OAuth client requires the extension's **permanent ID**, which the store assigns on
-> first upload. This creates a chicken-and-egg — resolve it in step 3.
+### 1. Manifest `key`
+`manifest.json` holds a `"key"` only to keep a stable local-dev extension ID; `build/package.sh`
+strips it for the store build (the store assigns the ID itself).
 
 ### 2. Build the package
 ```bash
@@ -33,20 +26,16 @@ bash build/package.sh
 ```
 (Bump `version` in `manifest.json` for each new upload — the store rejects duplicate versions.)
 
-### 3. First upload → get the Extension ID (resolves the OAuth loop)
-1. Upload the zip in the dashboard. The store assigns a **permanent Extension ID** + public key.
-2. In **Google Cloud Console → Credentials**, create/confirm an **OAuth client of type
-   "Chrome Extension"** using that ID.
-3. Put that `client_id` into `manifest.json` (`oauth2.client_id`) and the assigned public
-   key into `"key"`. Rebuild (`build/package.sh`) and re-upload.
+### 3. Upload
+Upload the zip in the dashboard.
 
 ### 4. Complete the listing
 Use `docs/STORE_LISTING.md`:
 - Name, summary, description, category, language.
 - Upload **screenshots** (1280×800) and the icons (already in `icons/`).
-- **Privacy policy URL** — host `PRIVACY.md` (e.g. on your Firebase site) and paste the URL.
+- **Privacy policy URL** — host `PRIVACY.md` (e.g. GitHub Pages) and paste the URL.
 - **Privacy practices tab** — paste the permission justifications; declare data usage
-  (auth email used locally/hashed; nothing sold) and "no remote code."
+  (no personal data collected; nothing sold) and "no remote code."
 - **Single purpose** — see the listing doc.
 
 ### 5. Set visibility & submit
