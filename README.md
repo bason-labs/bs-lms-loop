@@ -30,7 +30,6 @@ It watches each lesson, figures out what kind of content it is, handles it, and 
 - 🧠 **Quizzes** — solves them with an LLM when an API key is configured, or cleanly **skips** them when one isn't.
 - 🧭 **Auto-navigation** — starts from a course overview and jumps straight to the first incomplete lesson.
 - ✅ **Real completion, not fake clicks** — verifies each unit is marked complete after navigating; if not, it goes **Back** and retries (bounded).
-- 🔒 **Sign-in gate** — Google OAuth with a Firebase-backed admin **whitelist** (emails are SHA-256 hashed; public reads never expose them).
 - 🎨 **Polished popup** — dark/light themes and EN/VI localization.
 - 🪶 **Zero runtime dependencies** — the folder *is* the unpacked extension. No bundler, no build step.
 
@@ -102,32 +101,30 @@ node --check path/to/file.js
 
 ### Testing philosophy
 
-- **Unit-test only the pure logic** that needs no browser: `lib/auth.js`, `lib/llm_adapter.js`, and the pure helpers in `lib/storage.js` / `lib/dom_utils.js`. Hashing uses `crypto.subtle`, so the same code runs in Node and the browser.
-- **Everything DOM / `chrome.*` / Firebase-bound is verified by hand** in the browser (content scripts, service worker, popup, admin app). Keep `node --test` green before committing.
+- **Unit-test only the pure logic** that needs no browser: `lib/llm_adapter.js`, and the pure helpers in `lib/storage.js` / `lib/dom_utils.js`.
+- **Everything DOM / `chrome.*`-bound is verified by hand** in the browser (content scripts, service worker, popup). Keep `node --test` green before committing.
 
 ## 🏛️ Architecture
 
 The extension is **background-centric** — the service worker owns the hard parts:
 
-- **`background/service_worker.js`** — run-state, storage, **all LLM `fetch`es** (content-script fetches are blocked by page CSP), the auth check, and cross-frame message relays.
+- **`background/service_worker.js`** — run-state, storage, **all LLM `fetch`es** (content-script fetches are blocked by page CSP) and cross-frame message relays.
 - **Run scoping** — the loop binds to the tab where *Start* was clicked (`runState.tabId`). One run, one tab.
-- **Auth gate** — `chrome.identity.getAuthToken` → verified email → SHA-256 → public-read Firestore `whitelist/{hash}`. The admin app manages the list with admin-only writes and hashed doc IDs, so public reads never leak emails.
 
 ## 🗂️ File map
 
 | Path | Role |
 |------|------|
-| `manifest.json` | MV3 config — permissions, OAuth, content-script load order (matters!) |
-| `background/service_worker.js` | Message router, run-state, LLM calls, auth, relays |
+| `manifest.json` | MV3 config — permissions, content-script load order (matters!) |
+| `background/service_worker.js` | Message router, run-state, LLM calls, relays |
 | `config/selectors.js` | **Tunable per-LMS heuristics** — tune here first when a new LMS misbehaves |
-| `config/app_config.js` | Firebase / OAuth placeholders |
+| `config/app_config.js` | App constants (quiz confidence threshold) |
 | `content/detector.js` | Classifies each lesson (video / doc / quiz / overview) |
 | `content/content_video.js` · `content_doc.js` · `content_quiz.js` | Per-type handlers |
 | `content/controller.js` | Orchestrator (loaded last) |
 | `content/cursor.js` | Visual cursor / badge |
-| `lib/` | `storage.js`, `dom_utils.js` (classic, `NS.dom`), `llm_adapter.js`, `auth.js` |
-| `popup/` | Config UI + Google sign-in gate (themed, i18n) |
-| `admin/` | Firebase-hosted whitelist admin page |
+| `lib/` | `storage.js`, `dom_utils.js` (classic, `NS.dom`), `llm_adapter.js` |
+| `popup/` | Config UI (themed, i18n) |
 | `test/*.test.mjs` | Node unit tests |
 
 ## ⚙️ Stack & hard constraints
@@ -135,12 +132,6 @@ The extension is **background-centric** — the service worker owns the hard par
 - **Vanilla ES6+ JS, plain HTML/CSS.** No framework, no bundler, no build step, zero runtime deps.
 - `lib/*`, `background/`, `popup/` are **ES modules**. `content/*` + `config/selectors.js` are **classic scripts** sharing one isolated-world global, `window.__LMS` (alias `NS`) — they reference helpers via `NS.*` at call time (classic scripts can't `import`).
 - Dev tests use Node's built-in **`node:test`** only. `package.json` has `{"type":"module"}` so Node parses `lib/*.js` as ESM; Chrome ignores `package.json`.
-
-## 🔧 Manual / external setup
-
-The Google-auth feature needs one-time setup the code can't do: create the Firebase project + Firestore + Google Auth, seed `admins/{email}`, generate the manifest `key` + OAuth client (Chrome Extension type), fill the placeholders in `config/app_config.js` / `manifest.json` / `admin/admin.js` / `.firebaserc`, then `firebase deploy`.
-
-📖 Full steps: `docs/superpowers/plans/2026-06-08-google-auth-whitelist.md` (Phase 0).
 
 ## ⚠️ Responsible use
 
